@@ -1,0 +1,112 @@
+'use client'
+
+import { useState, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Camera, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { CameraRecorder } from './camera-recorder'
+
+export function SourcePicker() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showRecorder, setShowRecorder] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    await processAndNavigate(file)
+  }
+
+  const handleRecordComplete = async (file: File) => {
+    setShowRecorder(false)
+    await processAndNavigate(file)
+  }
+
+  const processAndNavigate = async (file: File) => {
+    setIsProcessing(true)
+    
+    // Validasi file (max 5 menit / 100MB dsb. bisa ditambahkan)
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('Ukuran video terlalu besar. Maksimal 100MB.')
+      setIsProcessing(false)
+      return
+    }
+
+    try {
+      // Convert to blob URL so we can pass it between pages
+      // (Since we can't pass File objects via URL and state gets lost on hard nav)
+      // Note: We use sessionStorage to hold a reference temporarily or just pass the Blob URL
+      // if it's reliable enough across the router.
+      const objectUrl = URL.createObjectURL(file)
+      
+      // Store in sessionStorage as backup mechanism
+      // Alternatively, we could read it as Base64 if it's small, but object URL is better for large files
+      // Next.js router might preserve object URLs if we do a client-side push.
+      sessionStorage.setItem('pendingVideoUrl', objectUrl)
+      sessionStorage.setItem('pendingVideoName', file.name)
+      sessionStorage.setItem('pendingVideoType', file.type)
+      
+      router.push(`/upload/preview?${searchParams.toString()}`)
+    } catch (err) {
+      toast.error('Gagal memproses video')
+      setIsProcessing(false)
+    }
+  }
+
+  if (showRecorder) {
+    return <CameraRecorder onComplete={handleRecordComplete} onCancel={() => setShowRecorder(false)} />
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <input
+        type="file"
+        accept="video/*"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+      />
+
+      <button
+        onClick={() => setShowRecorder(true)}
+        disabled={isProcessing}
+        className="group relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border-2 border-primary bg-primary/5 p-8 text-primary transition-all hover:bg-primary/10 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+      >
+        <div className="flex size-14 items-center justify-center rounded-full bg-primary/20 transition-transform group-hover:scale-110">
+          <Camera className="size-7" />
+        </div>
+        <div className="space-y-1 text-center">
+          <h3 className="font-bold text-lg">Rekam Kamera</h3>
+          <p className="text-sm opacity-80">Rekam langsung dengan kamera perangkat (Maks 5 menit)</p>
+        </div>
+        {isProcessing && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm">
+            <Loader2 className="size-8 animate-spin text-primary" />
+          </div>
+        )}
+      </button>
+
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isProcessing}
+        className="group relative flex flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border-2 border-border/60 bg-white p-8 text-foreground transition-all hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+      >
+        <div className="flex size-14 items-center justify-center rounded-full bg-muted transition-transform group-hover:scale-110">
+          <ImageIcon className="size-7 text-muted-foreground" />
+        </div>
+        <div className="space-y-1 text-center">
+          <h3 className="font-bold text-lg">Pilih dari Galeri</h3>
+          <p className="text-sm text-muted-foreground">Pilih file video dari penyimpanan perangkat</p>
+        </div>
+        {isProcessing && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center backdrop-blur-sm">
+            <Loader2 className="size-8 animate-spin text-primary" />
+          </div>
+        )}
+      </button>
+    </div>
+  )
+}

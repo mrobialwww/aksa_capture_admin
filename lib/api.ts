@@ -75,3 +75,60 @@ export async function getVideoById(id: string): Promise<VideoDetailResponse> {
 
   return res.json() as Promise<VideoDetailResponse>
 }
+
+// ────────────────────────── Upload helpers ──────────────────
+export async function getUploadUrl(params: {
+  type: string
+  label: string
+}): Promise<{ id: string; video_path: string; upload_url: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/upload-url`, {
+    method: 'POST',
+    headers: COMMON_HEADERS,
+    body: JSON.stringify(params),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to get upload URL: ${res.status} ${res.statusText}`)
+  }
+
+  return res.json()
+}
+
+export async function uploadVideoToCloud(
+  uploadUrl: string, 
+  file: File, 
+  mimeType: string
+): Promise<void> {
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': mimeType,
+    },
+    body: file,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to upload to cloud: ${res.status} ${res.statusText}`)
+  }
+}
+
+export async function createVideoMetadata(params: {
+  id: string
+  video_path: string
+  label: string
+  type: string
+  is_correct: boolean
+  notes?: string
+}): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/videos`, {
+    method: 'POST',
+    headers: COMMON_HEADERS,
+    body: JSON.stringify(params),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to create video metadata: ${res.status} ${res.statusText}`)
+  }
+
+  return res.json()
+}
