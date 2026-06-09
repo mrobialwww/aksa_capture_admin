@@ -41,8 +41,8 @@ export default async function DetailVideoPage({ params }: PageProps) {
     : null
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-16">
-      <div className="mx-auto max-w-[800px] pt-8 px-6">
+    <div className="min-h-screen bg-[#F8FAFC] pb-8">
+      <div className="w-full px-6 md:px-12 lg:px-24 pt-6">
         <Link
           href={`/materi/${type}/${slug}`}
           className="inline-flex items-center gap-2 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -60,82 +60,88 @@ export default async function DetailVideoPage({ params }: PageProps) {
         )}
 
         {video && (
-          <main className="mt-8 flex flex-col gap-6">
-            {/* Header */}
-            <div className="flex items-start justify-between">
-              <div className="flex flex-col gap-3">
-                <h1 className="text-[40px] font-black tracking-tight text-[#001D4A] leading-none">
-                  {decodedSlug}
-                </h1>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge
-                    variant="secondary"
-                    className="h-8 gap-2 rounded-full px-4 text-xs bg-[#E6F0FF] text-[#0A56D9] hover:bg-[#D4E5FF] border-transparent font-bold shadow-sm"
-                  >
-                    <Shapes className="size-3.5" strokeWidth={2.5} />
-                    {typeLabel}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className={
-                      video.is_correct
-                        ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 font-bold shadow-none'
-                        : 'h-8 gap-1.5 rounded-full px-4 text-xs border-red-200 bg-red-50 text-red-700 font-bold shadow-none'
-                    }
-                  >
-                    {video.is_correct
-                      ? <CheckCircle className="size-3.5" strokeWidth={2.5} />
-                      : <XCircle className="size-3.5" strokeWidth={2.5} />}
-                    {video.is_correct ? 'Gerakan Benar' : 'Gerakan Salah'}
-                  </Badge>
-                  {/* Badge gender */}
-                  {video.gender && (
+          <main className="mt-2 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Kiri: Video */}
+            <div className="lg:col-span-5 xl:col-span-4 flex justify-center lg:justify-start">
+              {/* Video Player — gunakan video_url asli dari API */}
+              <VideoPlayerPlaceholder videoUrl={video.video_url} />
+            </div>
+
+            {/* Kanan: Detail & Catatan */}
+            <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-2">
+                  <h1 className="text-[36px] font-black tracking-tight text-[#001D4A] leading-none">
+                    {decodedSlug}
+                  </h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge
+                      variant="secondary"
+                      className="h-8 gap-2 rounded-full px-4 text-xs bg-[#E6F0FF] text-[#0A56D9] hover:bg-[#D4E5FF] border-transparent font-bold shadow-sm"
+                    >
+                      <Shapes className="size-3.5" strokeWidth={2.5} />
+                      {typeLabel}
+                    </Badge>
                     <Badge
                       variant="outline"
                       className={
-                        video.gender.toLowerCase() === 'male'
-                          ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-none'
-                          : 'h-8 gap-1.5 rounded-full px-4 text-xs border-pink-200 bg-pink-50 text-pink-700 font-bold shadow-none'
+                        video.is_correct
+                          ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 font-bold shadow-none'
+                          : 'h-8 gap-1.5 rounded-full px-4 text-xs border-red-200 bg-red-50 text-red-700 font-bold shadow-none'
                       }
                     >
-                      <User className="size-3.5" strokeWidth={2.5} />
-                      {video.gender.toLowerCase() === 'male' ? 'Laki-laki' : 'Perempuan'}
+                      {video.is_correct
+                        ? <CheckCircle className="size-3.5" strokeWidth={2.5} />
+                        : <XCircle className="size-3.5" strokeWidth={2.5} />}
+                      {video.is_correct ? 'Gerakan Benar' : 'Gerakan Salah'}
                     </Badge>
-                  )}
+                    {/* Badge gender */}
+                    {video.gender && (
+                      <Badge
+                        variant="outline"
+                        className={
+                          video.gender.toLowerCase() === 'male'
+                            ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-none'
+                            : 'h-8 gap-1.5 rounded-full px-4 text-xs border-pink-200 bg-pink-50 text-pink-700 font-bold shadow-none'
+                        }
+                      >
+                        <User className="size-3.5" strokeWidth={2.5} />
+                        {video.gender.toLowerCase() === 'male' ? 'Laki-laki' : 'Perempuan'}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+                <button className="mt-1 text-muted-foreground/60 hover:text-foreground transition-colors">
+                  <Bookmark className="size-6" strokeWidth={2.5} />
+                </button>
               </div>
-              <button className="mt-1 text-muted-foreground/60 hover:text-foreground transition-colors">
-                <Bookmark className="size-6" strokeWidth={2.5} />
-              </button>
-            </div>
 
-            {/* Info perekam */}
-            {video.name && (
-              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E6F0FF]">
-                  <User className="size-5 text-[#0A56D9]" strokeWidth={2} />
+              {/* Info perekam */}
+              {video.name && (
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E6F0FF]">
+                    <User className="size-5 text-[#0A56D9]" strokeWidth={2} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nama Perekam</span>
+                    <span className="text-sm font-semibold text-[#001D4A]">{video.name}</span>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nama Perekam</span>
-                  <span className="text-[15px] font-semibold text-[#001D4A]">{video.name}</span>
+              )}
+
+              {/* Metadata */}
+              {formattedDate && (
+                <div className="flex items-center gap-2.5 rounded-2xl bg-[#E6F0FF]/60 px-5 py-3 text-[13px] text-[#001D4A]/80 font-medium">
+                  <Calendar className="size-[18px] text-[#0A56D9]/70 shrink-0" />
+                  <span>Dibuat: {formattedDate}</span>
                 </div>
+              )}
+
+              {/* Notes Form */}
+              <div className="mt-2">
+                <CatatanForm videoId={videoId} initialNotes={video.notes ?? ''} />
               </div>
-            )}
-
-            {/* Video Player — gunakan video_url asli dari API */}
-            <VideoPlayerPlaceholder videoUrl={video.video_url} />
-
-            {/* Metadata */}
-            {formattedDate && (
-              <div className="flex items-center gap-2.5 rounded-2xl bg-[#E6F0FF]/60 px-5 py-4 text-[13px] text-[#001D4A]/80 font-medium">
-                <Calendar className="size-[18px] text-[#0A56D9]/70 shrink-0" />
-                <span>Dibuat: {formattedDate}</span>
-              </div>
-            )}
-
-            {/* Notes Form — isi dari API notes */}
-            <div className="mt-2">
-              <CatatanForm videoId={videoId} initialNotes={video.notes ?? ''} />
             </div>
           </main>
         )}

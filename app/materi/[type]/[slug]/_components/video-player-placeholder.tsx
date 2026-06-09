@@ -154,7 +154,7 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 w-full">
       {/* Tombol koreksi rotasi manual */}
       <button
         onClick={cycleRotation}
@@ -177,10 +177,14 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
         Putar Orientasi ({rotationDeg}°)
       </button>
 
-      {/* Portrait container: rasio 9:16, max lebar 320px */}
+      {/* Portrait container: rasio 9:16, dibatasi maksimal 65vh (2/3 layar) agar tidak perlu scroll */}
       <div
-        className="group relative w-full max-w-[320px] overflow-hidden rounded-2xl bg-slate-900 shadow-sm ring-1 ring-border/10"
-        style={{ aspectRatio: '9 / 16' }}
+        className="group relative w-full overflow-hidden rounded-2xl bg-slate-900 shadow-sm ring-1 ring-border/10"
+        style={{ 
+          aspectRatio: '9 / 16',
+          maxHeight: '65vh',
+          maxWidth: 'calc(65vh * 9 / 16)'
+        }}
       >
         {/* Video tersembunyi — hanya sebagai sumber frame, tidak ditampilkan */}
         {videoUrl && (
