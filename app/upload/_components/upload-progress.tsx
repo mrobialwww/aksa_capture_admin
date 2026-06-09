@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getUploadUrl, uploadVideoToCloud, createVideoMetadata } from '@/lib/api'
 import { VideoPlayerPlaceholder } from '@/app/materi/[type]/[slug]/_components/video-player-placeholder'
+import { useUserStore } from '@/lib/store/useUserStore'
 
 interface UploadProgressProps {
   type: string
@@ -18,6 +19,7 @@ type UploadStep = 'idle' | 'siap' | 'url' | 'upload' | 'simpan' | 'success' | 'e
 
 export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) {
   const router = useRouter()
+  const { name, gender } = useUserStore()
   const [videoUrl, setVideoUrl] = useState<string>('')
   const [step, setStep] = useState<UploadStep>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -35,6 +37,11 @@ export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) 
 
   const handleUpload = async () => {
     if (!videoUrl) return
+    if (!name || !gender) {
+      toast.error('Data diri belum lengkap')
+      router.push('/setup')
+      return
+    }
     
     try {
       setStep('siap')
@@ -60,6 +67,8 @@ export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) 
       await createVideoMetadata({
         id: uploadData.id,
         video_path: uploadData.video_path,
+        name,
+        gender,
         label,
         type,
         is_correct: isCorrect,

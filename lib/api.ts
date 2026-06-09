@@ -115,6 +115,8 @@ export async function uploadVideoToCloud(
 export async function createVideoMetadata(params: {
   id: string
   video_path: string
+  name: string
+  gender: string
   label: string
   type: string
   is_correct: boolean
