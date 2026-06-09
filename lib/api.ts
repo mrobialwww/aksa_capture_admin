@@ -11,6 +11,8 @@ export interface Video {
   id: string
   video_path: string
   video_url: string
+  name: string
+  gender: string
   label: string
   type: string
   is_correct: boolean

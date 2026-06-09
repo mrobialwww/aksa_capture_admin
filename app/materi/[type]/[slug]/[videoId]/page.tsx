@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeft, Bookmark, Calendar, Shapes, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, Bookmark, Calendar, Shapes, AlertCircle, CheckCircle, XCircle, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getVideoById } from '@/lib/api'
 import { VideoPlayerPlaceholder } from '../_components/video-player-placeholder'
@@ -88,12 +88,39 @@ export default async function DetailVideoPage({ params }: PageProps) {
                       : <XCircle className="size-3.5" strokeWidth={2.5} />}
                     {video.is_correct ? 'Gerakan Benar' : 'Gerakan Salah'}
                   </Badge>
+                  {/* Badge gender */}
+                  {video.gender && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        video.gender.toLowerCase() === 'male'
+                          ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-none'
+                          : 'h-8 gap-1.5 rounded-full px-4 text-xs border-pink-200 bg-pink-50 text-pink-700 font-bold shadow-none'
+                      }
+                    >
+                      <User className="size-3.5" strokeWidth={2.5} />
+                      {video.gender.toLowerCase() === 'male' ? 'Laki-laki' : 'Perempuan'}
+                    </Badge>
+                  )}
                 </div>
               </div>
               <button className="mt-1 text-muted-foreground/60 hover:text-foreground transition-colors">
                 <Bookmark className="size-6" strokeWidth={2.5} />
               </button>
             </div>
+
+            {/* Info perekam */}
+            {video.name && (
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E6F0FF]">
+                  <User className="size-5 text-[#0A56D9]" strokeWidth={2} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Nama Perekam</span>
+                  <span className="text-[15px] font-semibold text-[#001D4A]">{video.name}</span>
+                </div>
+              </div>
+            )}
 
             {/* Video Player — gunakan video_url asli dari API */}
             <VideoPlayerPlaceholder videoUrl={video.video_url} />
