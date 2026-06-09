@@ -17,10 +17,9 @@ export default function SetupPage() {
   useEffect(() => {
     setIsMounted(true)
     if (storeName && storeGender) {
-      setName(storeName)
-      setGender(storeGender)
+      router.replace('/upload')
     }
-  }, [storeName, storeGender])
+  }, [storeName, storeGender, router])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
