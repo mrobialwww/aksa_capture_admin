@@ -8,16 +8,38 @@ const COMMON_HEADERS = {
 
 // ────────────────────────── Types ──────────────────────────
 export interface Video {
-  id: string
-  video_path: string
-  video_url: string
-  name: string
-  gender: string
-  label: string
-  type: string
-  is_correct: boolean
-  notes: string | null
+  sample_id: string
+  task_type: string[]
   created_at: string
+  media: {
+    video_path: string
+    video_url?: string
+    duration_sec: number
+    resolution_width: number
+    resolution_height: number
+    capture_location: string
+  }
+  label: {
+    gesture_type: string
+    gesture_name: string
+    target_id: string
+    bisindo_region: string
+    bisindo_subregion: string
+    is_correct: boolean
+    error_category: string | null
+    validated_by: string | null
+    reasoning: string | null
+  }
+  signer: {
+    signer_name: string
+    gender: string
+  }
+  quality: {
+    hands_visible: boolean
+    face_visible: boolean
+    hands_clear: boolean
+    face_clear: boolean
+  }
 }
 
 export interface VideosMeta {
@@ -43,6 +65,7 @@ export async function getVideos(params: {
   page?: number
   limit?: number
   is_correct?: boolean
+  signer_name?: string
 }): Promise<VideosListResponse> {
   const url = new URL(`${API_BASE}/api/v1/videos`)
   url.searchParams.set('type', params.type)
@@ -51,6 +74,9 @@ export async function getVideos(params: {
   url.searchParams.set('limit', String(params.limit ?? 20))
   if (params.is_correct !== undefined) {
     url.searchParams.set('is_correct', String(params.is_correct))
+  }
+  if (params.signer_name) {
+    url.searchParams.set('signer_name', params.signer_name)
   }
 
   const res = await fetch(url.toString(), {
@@ -82,7 +108,7 @@ export async function getVideoById(id: string): Promise<VideoDetailResponse> {
 export async function getUploadUrl(params: {
   type: string
   label: string
-}): Promise<{ id: string; video_path: string; upload_url: string }> {
+}): Promise<{ sample_id: string; video_path: string; upload_url: string; video_url: string }> {
   const res = await fetch(`${API_BASE}/api/v1/upload-url`, {
     method: 'POST',
     headers: COMMON_HEADERS,
@@ -115,23 +141,67 @@ export async function uploadVideoToCloud(
 }
 
 export async function createVideoMetadata(params: {
-  id: string
+  sample_id: string
   video_path: string
+  video_url: string
   name: string
   gender: string
-  label: string
-  type: string
+  gesture_type: string
+  gesture_name: string
   is_correct: boolean
-  notes?: string
+  capture_location: string
+  duration_sec: number
+  resolution_width: number
+  resolution_height: number
 }): Promise<{ message: string }> {
+  const payload = {
+    sample_id: params.sample_id,
+    media: {
+      video_path: params.video_path,
+      video_url: params.video_url,
+      duration_sec: params.duration_sec,
+      resolution: {
+        width: params.resolution_width,
+        height: params.resolution_height,
+      },
+      capture_location: params.capture_location,
+    },
+    label: {
+      gesture_type: params.gesture_type,
+      gesture_name: params.gesture_name,
+      bisindo_region_version: {
+        region: 'Jawa Timur',
+        subregion: 'Malang',
+      },
+      is_correct: params.is_correct,
+    },
+    signer: {
+      signer_name: params.name,
+      gender: params.gender === 'laki-laki' || params.gender === 'male' ? 'male' : 'female',
+    },
+  }
+
   const res = await fetch(`${API_BASE}/api/v1/videos`, {
     method: 'POST',
     headers: COMMON_HEADERS,
-    body: JSON.stringify(params),
+    body: JSON.stringify(payload),
   })
 
   if (!res.ok) {
     throw new Error(`Failed to create video metadata: ${res.status} ${res.statusText}`)
+  }
+
+  return res.json()
+}
+
+export async function deleteVideo(sampleId: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/api/v1/videos/${sampleId}`, {
+    method: 'DELETE',
+    headers: COMMON_HEADERS,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Failed to delete video: ${res.status} ${res.statusText}`)
   }
 
   return res.json()

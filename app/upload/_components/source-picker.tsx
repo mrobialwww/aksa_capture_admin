@@ -49,7 +49,7 @@ export function SourcePicker() {
       sessionStorage.setItem('pendingVideoName', file.name)
       sessionStorage.setItem('pendingVideoType', file.type)
       
-      router.push(`/upload/preview?${searchParams.toString()}`)
+      router.push(`/upload/edit?${searchParams.toString()}`)
     } catch (err) {
       toast.error('Gagal memproses video')
       setIsProcessing(false)

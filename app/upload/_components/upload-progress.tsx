@@ -13,11 +13,13 @@ interface UploadProgressProps {
   type: string
   label: string
   isCorrect: boolean
+  captureLocation: string
+  durationSec?: number
 }
 
 type UploadStep = 'idle' | 'siap' | 'url' | 'upload' | 'simpan' | 'success' | 'error'
 
-export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) {
+export function UploadProgress({ type, label, isCorrect, captureLocation, durationSec }: UploadProgressProps) {
   const router = useRouter()
   const { name, gender } = useUserStore()
   const [videoUrl, setVideoUrl] = useState<string>('')
@@ -34,6 +36,23 @@ export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) 
       router.push(`/upload/source?type=${type}&label=${label}&is_correct=${isCorrect}`)
     }
   }, [type, label, isCorrect, router])
+
+  const getVideoMetadata = (file: File): Promise<{ duration_sec: number; width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.onloadedmetadata = () => {
+        resolve({
+          duration_sec: video.duration,
+          width: video.videoWidth,
+          height: video.videoHeight,
+        })
+        URL.revokeObjectURL(video.src)
+      }
+      video.onerror = () => reject(new Error('Gagal membaca metadata video'))
+      video.src = URL.createObjectURL(file)
+    })
+  }
 
   const handleUpload = async () => {
     if (!videoUrl) return
@@ -54,9 +73,17 @@ export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) 
       const mimeType = sessionStorage.getItem('pendingVideoType') || blob.type || 'video/webm'
       const file = new File([blob], fileName, { type: mimeType })
 
+      // Extract real duration & resolution from the video file.
+      // If video was trimmed via VideoEditor (MediaRecorder webm), video.duration is 0.
+      // In that case we rely on the durationSec prop passed from the URL.
+      const { duration_sec: rawDuration, width, height } = await getVideoMetadata(file)
+      const duration_sec = durationSec !== undefined ? durationSec : rawDuration
+
+      const apiType = type.toLowerCase() === 'huruf' ? 'letter' : 'word'
+
       setStep('url')
       const uploadData = await getUploadUrl({
-        type,
+        type: apiType,
         label,
       })
 
@@ -65,14 +92,18 @@ export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) 
 
       setStep('simpan')
       await createVideoMetadata({
-        id: uploadData.id,
+        sample_id: uploadData.sample_id,
         video_path: uploadData.video_path,
+        video_url: uploadData.video_url,
         name,
         gender,
-        label,
-        type,
+        gesture_type: apiType,
+        gesture_name: label,
         is_correct: isCorrect,
-        notes: ''
+        capture_location: captureLocation,
+        duration_sec,
+        resolution_width: width,
+        resolution_height: height,
       })
 
       setStep('success')
@@ -96,6 +127,7 @@ export function UploadProgress({ type, label, isCorrect }: UploadProgressProps) 
       toast.error('Proses upload gagal')
     }
   }
+
 
   const steps = [
     { id: 'siap', label: 'Persiapan' },

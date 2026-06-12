@@ -13,6 +13,7 @@ interface PageProps {
     type?: string
     label?: string
     is_correct?: string
+    capture_location?: string
   }>
 }
 
@@ -21,10 +22,11 @@ export default async function SourcePage({ searchParams }: PageProps) {
   const type = sp.type || 'huruf'
   const label = sp.label || ''
   const isCorrect = sp.is_correct === 'true'
+  const captureLocation = sp.capture_location || 'indoor'
 
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC]">
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto">
         <Link
           href="/upload"
           className="inline-flex items-center gap-2 mb-6 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -54,6 +56,9 @@ export default async function SourcePage({ searchParams }: PageProps) {
                 >
                   {isCorrect ? <CheckCircle className="size-3.5 mr-1.5" /> : <XCircle className="size-3.5 mr-1.5" />}
                   {isCorrect ? 'Gerakan Benar' : 'Gerakan Salah'}
+                </Badge>
+                <Badge variant="outline" className="bg-white text-muted-foreground border-border font-bold capitalize">
+                  {captureLocation}
                 </Badge>
               </div>
             </div>

@@ -1,14 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, Maximize, AlertCircle } from 'lucide-react'
+import { Play, Pause, Maximize, AlertCircle, Volume2, VolumeX } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface VideoPlayerProps {
   videoUrl?: string
+  className?: string
+  style?: React.CSSProperties
 }
 
-export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
+export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const [progress, setProgress] = useState(0)
   const [currentTime, setCurrentTime] = useState('0:00')
   const [duration, setDuration] = useState('0:00')
@@ -135,13 +139,10 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
     setVideoError('Video tidak dapat dimuat. Periksa URL atau koneksi.')
   }
 
-  // ─── Rotasi manual ────────────────────────────────────────────────────────
-  // Putar +90° per klik: 0 → 90 → 180 → 270 → 0
-  const cycleRotation = () => {
-    setRotationDeg((prev) => (prev + 90) % 360)
-  }
+  // ─── Formatting ────────────────────────────────────────────────────────
 
   const fmt = (s: number) => {
+    if (!isFinite(s) || isNaN(s)) return '0:00'
     const m = Math.floor(s / 60)
     const sec = Math.floor(s % 60)
     return `${m}:${String(sec).padStart(2, '0')}`
@@ -154,36 +155,13 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-2 w-full">
-      {/* Tombol koreksi rotasi manual */}
-      <button
-        onClick={cycleRotation}
-        title="Putar orientasi video"
-        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="size-3.5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 2v6h-6" />
-          <path d="M21 13a9 9 0 1 1-3-7.7L21 8" />
-        </svg>
-        Putar Orientasi ({rotationDeg}°)
-      </button>
-
-      {/* Portrait container: rasio 9:16, dibatasi maksimal 65vh (2/3 layar) agar tidak perlu scroll */}
+    <div className={cn("flex flex-col items-center gap-2 w-full", className)} style={style}>
+      {/* Container dinamis (default portrait 9:16 jika tidak di-override) */}
       <div
-        className="group relative w-full overflow-hidden rounded-2xl bg-slate-900 shadow-sm ring-1 ring-border/10"
+        className="group relative w-full h-full overflow-hidden rounded-2xl bg-slate-900 shadow-sm ring-1 ring-border/10"
         style={{ 
-          aspectRatio: '9 / 16',
-          maxHeight: '65vh',
-          maxWidth: 'calc(65vh * 9 / 16)'
+          aspectRatio: style?.aspectRatio || '9 / 16',
+          maxHeight: style?.maxHeight || '65vh',
         }}
       >
         {/* Video tersembunyi — hanya sebagai sumber frame, tidak ditampilkan */}
@@ -193,6 +171,7 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
             src={videoUrl}
             preload="metadata"
             playsInline
+            muted={isMuted}
             className="absolute inset-0 h-full w-full"
             style={{ visibility: 'hidden', pointerEvents: 'none' }}
             onTimeUpdate={handleTimeUpdate}
@@ -207,7 +186,7 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
           <canvas
             ref={canvasRef}
             className="absolute inset-0 h-full w-full"
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'contain' }}
           />
         )}
 
@@ -265,6 +244,13 @@ export function VideoPlayerPlaceholder({ videoUrl }: VideoPlayerProps) {
           <span className="text-[11px] font-medium text-white/90 tabular-nums">
             {currentTime} / {duration}
           </span>
+
+          <button
+            className="text-white/90 hover:text-white transition-colors"
+            onClick={() => setIsMuted(!isMuted)}
+          >
+            {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
 
           <button
             className="text-white/90 hover:text-white transition-colors"

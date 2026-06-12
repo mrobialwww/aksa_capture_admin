@@ -38,9 +38,11 @@ export default async function VideoListPage({ params, searchParams }: PageProps)
   let totalPages = 1
   let fetchError: string | null = null
 
+  const apiType = isHuruf ? 'letter' : 'word'
+
   try {
     const res = await getVideos({
-      type,
+      type: apiType,
       label: decodedSlug,
       page: currentPage,
       limit: ITEMS_PER_PAGE,
@@ -98,10 +100,10 @@ export default async function VideoListPage({ params, searchParams }: PageProps)
             {videos.map((video) => {
               // Tampilkan 8 karakter pertama UUID sebagai identifier pendek
               // contoh: "550e8400-e29b-41d4-a716-446655440000" → "550e8400"
-              const displayLabel = video.id.slice(0, 8)
+              const displayLabel = video.sample_id.slice(0, 8)
               return (
                 <VideoListCard
-                  key={video.id}
+                  key={video.sample_id}
                   video={video}
                   displayLabel={displayLabel}
                   type={type}

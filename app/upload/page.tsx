@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import { CategorySelector } from './_components/category-selector'
+import { Library } from 'lucide-react'
 
 export const metadata = {
   title: 'Upload Video | Aksa Capture',
@@ -7,17 +9,17 @@ export const metadata = {
 
 export default function UploadPage() {
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC]">
-      <div className="flex-1 overflow-y-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#001D4A]">
-            Pilih Kategori
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Tentukan jenis dan status gerakan yang akan Anda rekam.
-          </p>
-        </div>
-        
+    <div className="flex flex-col h-full gap-6">
+      <div className="flex justify-end">
+        <Link 
+          href="/upload/gallery"
+          className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors"
+        >
+          <Library className="size-4 text-[#0A56D9]" />
+          Lihat Galeri Upload
+        </Link>
+      </div>
+      <div className="flex-1 overflow-y-auto">
         <CategorySelector />
       </div>
     </div>

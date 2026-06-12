@@ -12,11 +12,11 @@ interface VideoListCardProps {
 }
 
 export function VideoListCard({ video, displayLabel, type, slug }: VideoListCardProps) {
-  const hasNotes = Boolean(video?.notes && video.notes.trim() !== '')
+  const hasNotes = Boolean(video?.label?.reasoning && video.label.reasoning.trim() !== '')
 
   return (
     <Link
-      href={`/materi/${type}/${slug}/${video.id}`}
+      href={`/materi/${type}/${slug}/${video.sample_id}`}
       className="block outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl"
     >
       <Card

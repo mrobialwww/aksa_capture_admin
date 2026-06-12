@@ -19,6 +19,7 @@ export function CategorySelector() {
   const [type, setType] = useState<'huruf' | 'kata'>('huruf')
   const [label, setLabel] = useState<string>('')
   const [isCorrect, setIsCorrect] = useState<boolean>(true)
+  const [captureLocation, setCaptureLocation] = useState<'indoor' | 'outdoor'>('indoor')
 
   const handleNext = () => {
     if (!label) return
@@ -28,13 +29,37 @@ export function CategorySelector() {
     params.set('type', type)
     params.set('label', label)
     params.set('is_correct', String(isCorrect))
+    params.set('capture_location', captureLocation)
     
     router.push(`/upload/source?${params.toString()}`)
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Top Controls */}
+    <div className="flex flex-col gap-8 pb-12">
+      {/* Header & Button */}
+      <div className="mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#001D4A]">
+            Pilih Kategori
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tentukan jenis dan status gerakan yang akan Anda rekam.
+          </p>
+        </div>
+
+        {label && (
+          <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+            <Button
+              onClick={handleNext}
+              className="px-6 rounded-xl h-12 bg-[#0A56D9] text-white font-bold text-sm hover:bg-[#0848B8] shadow-md shadow-blue-500/20 active:scale-[0.98] transition-all"
+            >
+              Lanjut ke Rekam Video
+              <ArrowRight className="ml-2 size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col gap-8">
         
         {/* 1. Pilih Jenis Gerakan */}
@@ -70,11 +95,42 @@ export function CategorySelector() {
           </div>
         </div>
 
-        {/* 2. Pilih Huruf / Kata */}
+        {/* 2. Pilih Lokasi Pengambilan */}
+        <div className="flex flex-col gap-4">
+          <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
+            2. Pilih Lokasi Pengambilan
+          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setCaptureLocation('indoor')}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all border shadow-sm",
+                captureLocation === 'indoor'
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-300 ring-4 ring-emerald-500/10"
+                  : "bg-white text-muted-foreground/70 border-border/80 hover:bg-slate-50 hover:text-foreground"
+              )}
+            >
+              Indoor
+            </button>
+            <button
+              onClick={() => setCaptureLocation('outdoor')}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all border shadow-sm",
+                captureLocation === 'outdoor'
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-300 ring-4 ring-emerald-500/10"
+                  : "bg-white text-muted-foreground/70 border-border/80 hover:bg-slate-50 hover:text-foreground"
+              )}
+            >
+              Outdoor
+            </button>
+          </div>
+        </div>
+
+        {/* 3. Pilih Huruf / Kata */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-              2. Pilih {type === 'huruf' ? 'Huruf' : 'Kata'}
+              3. Pilih {type === 'huruf' ? 'Huruf' : 'Kata'}
             </span>
           </div>
           
@@ -129,18 +185,6 @@ export function CategorySelector() {
         </div>
       </div>
 
-      {/* 3. Lanjut */}
-      {label && (
-        <div className="pt-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-300 flex justify-end">
-          <Button
-            onClick={handleNext}
-            className="w-full sm:w-auto px-10 rounded-2xl h-14 bg-[#0A56D9] text-white font-bold text-lg hover:bg-[#0848B8] shadow-xl shadow-blue-500/20 active:scale-[0.98] transition-all"
-          >
-            Lanjut ke Rekam Video
-            <ArrowRight className="ml-2 size-5" />
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

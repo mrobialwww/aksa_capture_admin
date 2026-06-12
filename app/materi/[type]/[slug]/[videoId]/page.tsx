@@ -64,7 +64,7 @@ export default async function DetailVideoPage({ params }: PageProps) {
             {/* Kiri: Video */}
             <div className="lg:col-span-5 xl:col-span-4 flex justify-center lg:justify-start">
               {/* Video Player — gunakan video_url asli dari API */}
-              <VideoPlayerPlaceholder videoUrl={video.video_url} />
+              <VideoPlayerPlaceholder videoUrl={video.media?.video_url ?? ''} />
             </div>
 
             {/* Kanan: Detail & Catatan */}
@@ -86,28 +86,28 @@ export default async function DetailVideoPage({ params }: PageProps) {
                     <Badge
                       variant="outline"
                       className={
-                        video.is_correct
+                        video.label?.is_correct
                           ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 font-bold shadow-none'
                           : 'h-8 gap-1.5 rounded-full px-4 text-xs border-red-200 bg-red-50 text-red-700 font-bold shadow-none'
                       }
                     >
-                      {video.is_correct
+                      {video.label?.is_correct
                         ? <CheckCircle className="size-3.5" strokeWidth={2.5} />
                         : <XCircle className="size-3.5" strokeWidth={2.5} />}
-                      {video.is_correct ? 'Gerakan Benar' : 'Gerakan Salah'}
+                      {video.label?.is_correct ? 'Gerakan Benar' : 'Gerakan Salah'}
                     </Badge>
                     {/* Badge gender */}
-                    {video.gender && (
+                    {video.signer?.gender && (
                       <Badge
                         variant="outline"
                         className={
-                          video.gender.toLowerCase() === 'male'
+                          video.signer.gender.toLowerCase() === 'male' || video.signer.gender.toLowerCase() === 'laki-laki'
                             ? 'h-8 gap-1.5 rounded-full px-4 text-xs border-blue-200 bg-blue-50 text-blue-700 font-bold shadow-none'
                             : 'h-8 gap-1.5 rounded-full px-4 text-xs border-pink-200 bg-pink-50 text-pink-700 font-bold shadow-none'
                         }
                       >
                         <User className="size-3.5" strokeWidth={2.5} />
-                        {video.gender.toLowerCase() === 'male' ? 'Laki-laki' : 'Perempuan'}
+                        {video.signer.gender.toLowerCase() === 'male' || video.signer.gender.toLowerCase() === 'laki-laki' ? 'Laki-laki' : 'Perempuan'}
                       </Badge>
                     )}
                   </div>
@@ -118,14 +118,14 @@ export default async function DetailVideoPage({ params }: PageProps) {
               </div>
 
               {/* Info perekam */}
-              {video.name && (
+              {video.signer?.signer_name && (
                 <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#E6F0FF]">
                     <User className="size-5 text-[#0A56D9]" strokeWidth={2} />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Nama Perekam</span>
-                    <span className="text-sm font-semibold text-[#001D4A]">{video.name}</span>
+                    <span className="text-sm font-semibold text-[#001D4A]">{video.signer.signer_name}</span>
                   </div>
                 </div>
               )}
@@ -140,7 +140,7 @@ export default async function DetailVideoPage({ params }: PageProps) {
 
               {/* Notes Form */}
               <div className="mt-2">
-                <CatatanForm videoId={videoId} initialNotes={video.notes ?? ''} />
+                <CatatanForm video={video} />
               </div>
             </div>
           </main>

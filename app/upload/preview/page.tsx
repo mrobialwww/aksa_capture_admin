@@ -12,6 +12,8 @@ interface PageProps {
     type?: string
     label?: string
     is_correct?: string
+    capture_location?: string
+    duration_sec?: string
   }>
 }
 
@@ -20,10 +22,15 @@ export default async function PreviewPage({ searchParams }: PageProps) {
   const type = sp.type || 'huruf'
   const label = sp.label || ''
   const isCorrect = sp.is_correct === 'true'
+  const captureLocation = sp.capture_location || 'indoor'
+  // duration_sec is set when video came through the editor (trim/rotate).
+  // For gallery/camera videos that skipped editing, this will be undefined
+  // and UploadProgress falls back to reading it from the video element.
+  const durationSec = sp.duration_sec ? parseFloat(sp.duration_sec) : undefined
 
   return (
-    <div className="flex flex-col h-full bg-[#F8FAFC]">
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto">
         <Link
           href={`/upload/source?type=${type}&label=${label}&is_correct=${sp.is_correct}`}
           className="inline-flex items-center gap-2 mb-6 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -41,8 +48,15 @@ export default async function PreviewPage({ searchParams }: PageProps) {
           </p>
         </div>
 
-        <UploadProgress type={type} label={label} isCorrect={isCorrect} />
+        <UploadProgress
+          type={type}
+          label={label}
+          isCorrect={isCorrect}
+          captureLocation={captureLocation}
+          durationSec={durationSec}
+        />
       </div>
     </div>
   )
 }
+
