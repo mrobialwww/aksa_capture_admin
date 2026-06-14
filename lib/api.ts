@@ -149,6 +149,7 @@ export async function createVideoMetadata(params: {
   gesture_type: string
   gesture_name: string
   is_correct: boolean
+  error_category?: string
   capture_location: string
   duration_sec: number
   resolution_width: number
@@ -174,6 +175,7 @@ export async function createVideoMetadata(params: {
         subregion: 'Malang',
       },
       is_correct: params.is_correct,
+      error_category: params.error_category || null,
     },
     signer: {
       signer_name: params.name,

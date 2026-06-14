@@ -1,10 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { Save, BookText, CheckCircle2 } from 'lucide-react'
+import { Save, BookText, CheckCircle2, ChevronDown } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Video } from '@/lib/api'
@@ -18,6 +25,7 @@ interface CatatanFormProps {
 
 export function CatatanForm({ video }: CatatanFormProps) {
   const [notes, setNotes] = useState(video.label?.reasoning ?? '')
+  const [errorCategory, setErrorCategory] = useState(video.label?.error_category ?? '')
   const [handsVisible, setHandsVisible] = useState(video.quality?.hands_visible ?? false)
   const [faceVisible, setFaceVisible] = useState(video.quality?.face_visible ?? false)
   const [handsClear, setHandsClear] = useState(video.quality?.hands_clear ?? false)
@@ -44,7 +52,8 @@ export function CatatanForm({ video }: CatatanFormProps) {
           hands_visible: handsVisible,
           face_visible: faceVisible,
           hands_clear: handsClear,
-          face_clear: faceClear
+          face_clear: faceClear,
+          error_category: errorCategory || null
         }),
       })
 
@@ -95,6 +104,38 @@ export function CatatanForm({ video }: CatatanFormProps) {
           <CheckboxField id="handsClear" label="Hands Clear" checked={handsClear} onChange={setHandsClear} />
           <CheckboxField id="faceClear" label="Face Clear" checked={faceClear} onChange={setFaceClear} />
         </div>
+
+        {video.label?.is_correct === false && (
+          <div className="flex flex-col gap-2 mt-2">
+            <label className="text-sm font-bold text-[#001D4A]">Kategori Kesalahan</label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-between h-11 rounded-xl border-border/80 bg-[#F8FAFC] px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 font-normal",
+                    !errorCategory && "text-muted-foreground"
+                  )}
+                >
+                  {errorCategory 
+                    ? errorCategory.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                    : "Pilih Kategori Kesalahan"}
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-[200px] rounded-xl">
+                <DropdownMenuItem onClick={() => setErrorCategory("handshape_wrong")}>Handshape Wrong</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("orientation_wrong")}>Orientation Wrong</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("location_wrong")}>Location Wrong</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("movement_wrong")}>Movement Wrong</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("non_manual_marker_missing")}>Non-Manual Marker Missing</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("finger_spelling_incomplete")}>Finger Spelling Incomplete</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("mixed_with_other_sign")}>Mixed with Other Sign</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setErrorCategory("unclear")}>Unclear</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2 mt-2">
           <label className="text-sm font-bold text-[#001D4A]">Notes</label>

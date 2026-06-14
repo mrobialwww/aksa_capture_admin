@@ -49,8 +49,13 @@ export function CameraRecorder({
   const startCamera = async () => {
     try {
       const ms = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' }, // use front camera by default for signs
-        audio: true
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        }, // use front camera by default for signs, target 720p 30fps
+        audio: false // Force no audio for sign language capture
       })
       setStream(ms)
       if (videoRef.current) {
@@ -74,7 +79,8 @@ export function CameraRecorder({
     
     try {
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8,opus'
+        mimeType: 'video/webm;codecs=vp8,opus',
+        videoBitsPerSecond: 850000 // Compress to ~850 kbps
       })
       
       mediaRecorder.ondataavailable = (e) => {

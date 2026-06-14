@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  Play, Pause, Volume2, VolumeX, Scissors, ChevronRight, Loader2, RotateCw
+  Play, Pause, Scissors, ChevronRight, Loader2, RotateCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -23,7 +23,6 @@ export function VideoEditor() {
   const [startTime, setStartTime] = useState(0)
   const [endTime, setEndTime] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
   const [rotation, setRotation] = useState<number>(0)
   const [isExporting, setIsExporting] = useState(false)
   const [isDragging, setIsDragging] = useState<'start' | 'end' | 'playhead' | null>(null)
@@ -39,10 +38,7 @@ export function VideoEditor() {
     setVideoSrc(url)
   }, [router, searchParams])
 
-  // Sync video mute state
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.muted = isMuted
-  }, [isMuted])
+  // Video is always muted for preview
 
   // Playhead animation loop
   const startLoop = useCallback(() => {
@@ -149,61 +145,66 @@ export function VideoEditor() {
     try {
       let stream: MediaStream
 
-      if (rotation !== 0) {
-        // MUST use canvas to burn the rotation transform into the video
-        const canvas = document.createElement('canvas')
-        const isPortrait = rotation === 90 || rotation === 270
-        canvas.width = isPortrait ? video.videoHeight : video.videoWidth
-        canvas.height = isPortrait ? video.videoWidth : video.videoHeight
-        const ctx = canvas.getContext('2d')
-
-        if (!ctx) throw new Error('Gagal memuat canvas untuk rotate video')
-
-        stream = (canvas as any).captureStream?.(30) ?? (canvas as any).mozCaptureStream?.(30)
-        if (!stream) throw new Error('Browser tidak mendukung canvas captureStream')
-
-        // Add original audio if not muted
-        if (!isMuted) {
-          const audioStream: MediaStream = (video as any).captureStream?.() ?? (video as any).mozCaptureStream?.()
-          if (audioStream) {
-            const audioTracks = audioStream.getAudioTracks()
-            if (audioTracks.length > 0) stream.addTrack(audioTracks[0])
-          }
+      // ALWAYS use canvas to enforce max 720p 30fps
+      const canvas = document.createElement('canvas')
+      const isPortrait = rotation === 90 || rotation === 270
+      
+      let origWidth = isPortrait ? video.videoHeight : video.videoWidth
+      let origHeight = isPortrait ? video.videoWidth : video.videoHeight
+      
+      // Calculate scale to fit within 1280x720 (or 720x1280)
+      let scale = 1
+      if (origWidth > origHeight) { // Landscape
+        if (origWidth > 1280 || origHeight > 720) {
+          scale = Math.min(1280 / origWidth, 720 / origHeight)
         }
-
-        const drawCanvas = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height)
-          ctx.save()
-          if (rotation === 90) {
-            ctx.translate(canvas.width, 0)
-            ctx.rotate(90 * Math.PI / 180)
-          } else if (rotation === 180) {
-            ctx.translate(canvas.width, canvas.height)
-            ctx.rotate(180 * Math.PI / 180)
-          } else if (rotation === 270) {
-            ctx.translate(0, canvas.height)
-            ctx.rotate(270 * Math.PI / 180)
-          }
-          ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight)
-          ctx.restore()
-          animId = requestAnimationFrame(drawCanvas)
-        }
-        animId = requestAnimationFrame(drawCanvas)
-      } else {
-        stream = (video as any).captureStream?.() ?? (video as any).mozCaptureStream?.()
-        if (!stream) throw new Error('Browser ini tidak mendukung captureStream. Gunakan Chrome atau Edge.')
-
-        if (isMuted) {
-          stream.getAudioTracks().forEach(t => stream.removeTrack(t))
+      } else { // Portrait
+        if (origWidth > 720 || origHeight > 1280) {
+          scale = Math.min(720 / origWidth, 1280 / origHeight)
         }
       }
+      
+      canvas.width = Math.round(origWidth * scale)
+      canvas.height = Math.round(origHeight * scale)
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) throw new Error('Gagal memuat canvas untuk kompresi video')
+      
+      stream = (canvas as any).captureStream?.(30) ?? (canvas as any).mozCaptureStream?.(30)
+      if (!stream) throw new Error('Browser tidak mendukung canvas captureStream')
+      
+      const drawCanvas = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.save()
+        
+        ctx.scale(scale, scale)
+
+        if (rotation === 90) {
+          ctx.translate(video.videoHeight, 0)
+          ctx.rotate(90 * Math.PI / 180)
+        } else if (rotation === 180) {
+          ctx.translate(video.videoWidth, video.videoHeight)
+          ctx.rotate(180 * Math.PI / 180)
+        } else if (rotation === 270) {
+          ctx.translate(0, video.videoWidth)
+          ctx.rotate(270 * Math.PI / 180)
+        }
+        
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight)
+        ctx.restore()
+        animId = requestAnimationFrame(drawCanvas)
+      }
+      animId = requestAnimationFrame(drawCanvas)
 
       const chunks: Blob[] = []
       const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
         ? 'video/webm;codecs=vp8,opus'
         : 'video/webm'
 
-      const recorder = new MediaRecorder(stream, { mimeType })
+      const recorder = new MediaRecorder(stream, { 
+        mimeType,
+        videoBitsPerSecond: 850000 // Lock bitrate between 800-900 kbps
+      })
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
 
       // Wait for seek to complete reliably
@@ -216,7 +217,7 @@ export function VideoEditor() {
       })
 
       recorder.start(100)
-      video.muted = isMuted
+      video.muted = true
       video.play()
 
       // Wait for video to reach endTime using timeupdate event
@@ -276,10 +277,7 @@ export function VideoEditor() {
     }
   }
 
-  // Skip to preview without editing
-  const handleSkip = () => {
-    router.push(`/upload/preview?${searchParams.toString()}`)
-  }
+
 
   const pct = (t: number) => duration > 0 ? `${(t / duration) * 100}%` : '0%'
   const trimDuration = (endTime - startTime).toFixed(1)
@@ -315,7 +313,7 @@ export function VideoEditor() {
               maxHeight: '100%',
               maxWidth: '100%'
             }}
-            muted={isMuted}
+            muted={true}
             onLoadedMetadata={() => {
               const d = videoRef.current!.duration
               setDuration(d)
@@ -340,13 +338,6 @@ export function VideoEditor() {
             title="Putar Video 90 Derajat"
           >
             <RotateCw className="size-5" />
-          </button>
-          <button
-            onClick={() => setIsMuted(!isMuted)}
-            className="size-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors"
-            title={isMuted ? "Suara dimatikan" : "Matikan Suara"}
-          >
-            {isMuted ? <VolumeX className="size-5" /> : <Volume2 className="size-5" />}
           </button>
           <span className="ml-auto text-white/80 text-xs font-mono tabular-nums">
             {formatTime(currentTime)} / {formatTime(duration)}
@@ -447,14 +438,7 @@ export function VideoEditor() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3 pt-1">
-          <Button
-            variant="outline"
-            onClick={handleSkip}
-            className="flex-1 rounded-xl h-11 font-semibold text-muted-foreground border-border/80"
-            disabled={isExporting}
-          >
-            Lewati Edit
-          </Button>
+
           <Button
             onClick={handleExport}
             disabled={isExporting}

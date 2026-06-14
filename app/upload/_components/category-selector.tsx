@@ -2,9 +2,16 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle, XCircle, ArrowRight } from 'lucide-react'
+import { CheckCircle, XCircle, ArrowRight, ChevronDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from '@/lib/utils'
 
 const HURUF_LIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
@@ -19,17 +26,26 @@ export function CategorySelector() {
   const [type, setType] = useState<'huruf' | 'kata'>('huruf')
   const [label, setLabel] = useState<string>('')
   const [isCorrect, setIsCorrect] = useState<boolean>(true)
+  const [errorCategory, setErrorCategory] = useState<string>('')
   const [captureLocation, setCaptureLocation] = useState<'indoor' | 'outdoor'>('indoor')
 
   const handleNext = () => {
     if (!label) return
     
+    if (!isCorrect && !errorCategory) {
+      toast.error('Pilih kategori kesalahan terlebih dahulu')
+      return
+    }
+
     // Save to url params and navigate
     const params = new URLSearchParams()
     params.set('type', type)
     params.set('label', label)
     params.set('is_correct', String(isCorrect))
     params.set('capture_location', captureLocation)
+    if (!isCorrect && errorCategory) {
+      params.set('error_category', errorCategory)
+    }
     
     router.push(`/upload/source?${params.toString()}`)
   }
@@ -69,7 +85,7 @@ export function CategorySelector() {
           </span>
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => setIsCorrect(true)}
+              onClick={() => { setIsCorrect(true); setErrorCategory(''); }}
               className={cn(
                 "flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold transition-all border shadow-sm",
                 isCorrect
@@ -93,6 +109,40 @@ export function CategorySelector() {
               Gerakan Salah
             </button>
           </div>
+
+          {!isCorrect && (
+            <div className="m-2  animate-in fade-in slide-in-from-top-2">
+              <label className="text-sm font-bold text-[#001D4A] block mb-2">
+                Kategori Kesalahan
+              </label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full sm:w-1/2 justify-between h-12 rounded-xl border-border/80 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20",
+                      !errorCategory && "text-muted-foreground"
+                    )}
+                  >
+                    {errorCategory 
+                      ? errorCategory.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                      : "Pilih Kategori Kesalahan"}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-[200px] rounded-xl">
+                  <DropdownMenuItem onClick={() => setErrorCategory("handshape_wrong")}>Handshape Wrong</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("orientation_wrong")}>Orientation Wrong</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("location_wrong")}>Location Wrong</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("movement_wrong")}>Movement Wrong</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("non_manual_marker_missing")}>Non-Manual Marker Missing</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("finger_spelling_incomplete")}>Finger Spelling Incomplete</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("mixed_with_other_sign")}>Mixed with Other Sign</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setErrorCategory("unclear")}>Unclear</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
 
         {/* 2. Pilih Lokasi Pengambilan */}

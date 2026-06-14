@@ -13,13 +13,14 @@ interface UploadProgressProps {
   type: string
   label: string
   isCorrect: boolean
+  errorCategory?: string
   captureLocation: string
   durationSec?: number
 }
 
 type UploadStep = 'idle' | 'siap' | 'url' | 'upload' | 'simpan' | 'success' | 'error'
 
-export function UploadProgress({ type, label, isCorrect, captureLocation, durationSec }: UploadProgressProps) {
+export function UploadProgress({ type, label, isCorrect, errorCategory, captureLocation, durationSec }: UploadProgressProps) {
   const router = useRouter()
   const { name, gender } = useUserStore()
   const [videoUrl, setVideoUrl] = useState<string>('')
@@ -100,6 +101,7 @@ export function UploadProgress({ type, label, isCorrect, captureLocation, durati
         gesture_type: apiType,
         gesture_name: label,
         is_correct: isCorrect,
+        error_category: errorCategory,
         capture_location: captureLocation,
         duration_sec,
         resolution_width: width,

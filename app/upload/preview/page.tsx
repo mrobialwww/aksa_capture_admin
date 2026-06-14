@@ -12,6 +12,7 @@ interface PageProps {
     type?: string
     label?: string
     is_correct?: string
+    error_category?: string
     capture_location?: string
     duration_sec?: string
   }>
@@ -22,6 +23,7 @@ export default async function PreviewPage({ searchParams }: PageProps) {
   const type = sp.type || 'huruf'
   const label = sp.label || ''
   const isCorrect = sp.is_correct === 'true'
+  const errorCategory = sp.error_category
   const captureLocation = sp.capture_location || 'indoor'
   // duration_sec is set when video came through the editor (trim/rotate).
   // For gallery/camera videos that skipped editing, this will be undefined
@@ -52,6 +54,7 @@ export default async function PreviewPage({ searchParams }: PageProps) {
           type={type}
           label={label}
           isCorrect={isCorrect}
+          errorCategory={errorCategory}
           captureLocation={captureLocation}
           durationSec={durationSec}
         />
