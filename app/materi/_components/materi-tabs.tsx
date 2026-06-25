@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HurufCard } from "./huruf-card";
 import { KataCard } from "./kata-card";
-import { HURUF_LIST, KATA_LIST, GROUPED_KATA_LIST } from "@/lib/constants";
+import { HURUF_LIST, KATA_LIST, GROUPED_KATA_LIST, DESKTOP_KATA_ROWS } from "@/lib/constants";
 
 export function MateriTabs() {
     const [tab, setTab] = useState<string>("huruf");
@@ -108,10 +108,11 @@ export function MateriTabs() {
 
             {/* ── Kata Content ── */}
             <TabsContent value="kata" className="mt-0 outline-none">
-                <div className="flex flex-col gap-8">
+                {/* Mobile View */}
+                <div className="flex flex-col gap-8 xl:hidden">
                     {GROUPED_KATA_LIST.map((group, groupIdx) => (
                         <div key={groupIdx} className="flex flex-col gap-8">
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                                 {group.map((word) => {
                                     const index = KATA_LIST.indexOf(word);
                                     return (
@@ -125,10 +126,54 @@ export function MateriTabs() {
                                 })}
                             </div>
                             {groupIdx < GROUPED_KATA_LIST.length - 1 && (
-                                <hr className="border-t-2 border-border/60" />
+                                <hr className="border-t-2 border-emerald-500/60" />
                             )}
                         </div>
                     ))}
+                </div>
+
+                {/* Desktop View */}
+                <div className="hidden xl:flex flex-col gap-8">
+                    {DESKTOP_KATA_ROWS.map((row, rowIdx) => {
+                        const totalItemsInRow = row.reduce((sum, g) => sum + g.length, 0);
+                        const remainingCols = 6 - totalItemsInRow;
+                        
+                        return (
+                            <div key={rowIdx} className="flex flex-col gap-8">
+                                <div className="flex flex-row gap-4 w-full">
+                                    {row.map((group, groupIdx) => (
+                                        <div key={groupIdx} className="flex flex-row gap-4" style={{ flex: group.length }}>
+                                            <div 
+                                                className="grid gap-4 w-full"
+                                                style={{ gridTemplateColumns: `repeat(${group.length}, minmax(0, 1fr))` }}
+                                            >
+                                                {group.map((word) => {
+                                                    const index = KATA_LIST.indexOf(word);
+                                                    return (
+                                                        <KataCard
+                                                            key={word}
+                                                            index={index}
+                                                            word={word}
+                                                            gerakanTab={gerakanTab}
+                                                        />
+                                                    );
+                                                })}
+                                            </div>
+                                            {groupIdx < row.length - 1 && (
+                                                <div className="w-[3px] bg-emerald-500/60 rounded-full shrink-0" />
+                                            )}
+                                        </div>
+                                    ))}
+                                    {remainingCols > 0 && (
+                                        <div style={{ flex: remainingCols }} />
+                                    )}
+                                </div>
+                                {rowIdx < DESKTOP_KATA_ROWS.length - 1 && (
+                                    <hr className="border-t-2 border-emerald-500/60" />
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </TabsContent>
         </Tabs>

@@ -13,7 +13,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { HURUF_LIST, KATA_LIST, GROUPED_KATA_LIST } from "@/lib/constants";
+import { HURUF_LIST, KATA_LIST, GROUPED_KATA_LIST, DESKTOP_KATA_ROWS } from "@/lib/constants";
 
 export function CategorySelector() {
     const router = useRouter();
@@ -293,10 +293,11 @@ export function CategorySelector() {
                         </TabsContent>
 
                         <TabsContent value="kata" className="mt-0 outline-none">
-                            <div className="flex flex-col gap-6">
+                            {/* Mobile View */}
+                            <div className="flex flex-col gap-6 lg:hidden">
                                 {GROUPED_KATA_LIST.map((group, groupIdx) => (
                                     <div key={groupIdx} className="flex flex-col gap-6">
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                             {group.map((k) => (
                                                 <button
                                                     key={k}
@@ -313,10 +314,57 @@ export function CategorySelector() {
                                             ))}
                                         </div>
                                         {groupIdx < GROUPED_KATA_LIST.length - 1 && (
-                                            <hr className="border-t-2 border-border/60" />
+                                            <hr className="border-t-2 border-emerald-500/60" />
                                         )}
                                     </div>
                                 ))}
+                            </div>
+
+                            {/* Desktop View */}
+                            <div className="hidden lg:flex flex-col gap-6">
+                                {DESKTOP_KATA_ROWS.map((row, rowIdx) => {
+                                    const totalItemsInRow = row.reduce((sum, g) => sum + g.length, 0);
+                                    const remainingCols = 6 - totalItemsInRow;
+                                    
+                                    return (
+                                        <div key={rowIdx} className="flex flex-col gap-6">
+                                            <div className="flex flex-row gap-3 w-full">
+                                                {row.map((group, groupIdx) => (
+                                                    <div key={groupIdx} className="flex flex-row gap-3" style={{ flex: group.length }}>
+                                                        <div 
+                                                            className="grid gap-3 w-full"
+                                                            style={{ gridTemplateColumns: `repeat(${group.length}, minmax(0, 1fr))` }}
+                                                        >
+                                                            {group.map((k) => (
+                                                                <button
+                                                                    key={k}
+                                                                    onClick={() => setLabel(k)}
+                                                                    className={cn(
+                                                                        "flex min-h-16 items-center px-5 rounded-2xl border-2 text-base font-bold capitalize transition-all shadow-sm",
+                                                                        label === k
+                                                                            ? "border-[#0A56D9] bg-[#0A56D9]/10 text-[#0A56D9] ring-4 ring-[#0A56D9]/10"
+                                                                            : "border-border/60 bg-white text-foreground hover:border-[#0A56D9]/40 hover:bg-[#0A56D9]/5",
+                                                                    )}
+                                                                >
+                                                                    {k}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        {groupIdx < row.length - 1 && (
+                                                            <div className="w-[3px] bg-emerald-500/60 rounded-full shrink-0" />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {remainingCols > 0 && (
+                                                    <div style={{ flex: remainingCols }} />
+                                                )}
+                                            </div>
+                                            {rowIdx < DESKTOP_KATA_ROWS.length - 1 && (
+                                                <hr className="border-t-2 border-emerald-500/60" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </TabsContent>
                     </Tabs>
