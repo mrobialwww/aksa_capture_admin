@@ -152,7 +152,17 @@ export function VideoEditor() {
         let animId: number | undefined;
 
         const effectiveStart = startTime;
-        const effectiveEnd = endTime > 0 ? endTime : duration;
+        const effectiveEnd =
+            endTime > 0 && isFinite(endTime) ? endTime : duration;
+
+        // Guard: if duration is still Infinity (WebM metadata not yet resolved), abort.
+        if (!isFinite(effectiveEnd) || effectiveEnd === 0) {
+            toast.error(
+                "Durasi video belum terbaca. Tunggu sebentar lalu coba lagi.",
+            );
+            setIsExporting(false);
+            return;
+        }
 
         try {
             let stream: MediaStream;
@@ -306,10 +316,13 @@ export function VideoEditor() {
     };
 
     const pct = (t: number) =>
-        duration > 0 ? `${(t / duration) * 100}%` : "0%";
-    const trimDuration = (endTime - startTime).toFixed(1);
+        duration > 0 && isFinite(duration) ? `${(t / duration) * 100}%` : "0%";
+    const trimDuration = isFinite(endTime - startTime)
+        ? (endTime - startTime).toFixed(1)
+        : "...";
 
     const formatTime = (t: number) => {
+        if (!isFinite(t) || isNaN(t) || t < 0) return "0:00.0";
         const m = Math.floor(t / 60);
         const s = Math.floor(t % 60);
         const ms = Math.floor((t % 1) * 10);
@@ -342,9 +355,29 @@ export function VideoEditor() {
                         }}
                         muted={true}
                         onLoadedMetadata={() => {
-                            const d = videoRef.current!.duration;
-                            setDuration(d);
-                            setEndTime(d);
+                            const video = videoRef.current!;
+                            const d = video.duration;
+                            if (!isFinite(d) || d === 0) {
+                                // MediaRecorder WebM has no duration header → duration = Infinity.
+                                // Seeking to a large value forces the browser to scan to EOF
+                                // and update video.duration with the real value.
+                                video.currentTime = 1e101;
+                            } else {
+                                setDuration(d);
+                                setEndTime(d);
+                            }
+                        }}
+                        onSeeked={() => {
+                            // Fires after the seek-to-1e101 trick above resolves.
+                            // At this point video.duration should be the real duration.
+                            const video = videoRef.current;
+                            if (!video) return;
+                            const d = video.duration;
+                            if (isFinite(d) && d > 0 && duration === 0) {
+                                setDuration(d);
+                                setEndTime(d);
+                                video.currentTime = 0; // reset playhead to beginning
+                            }
                         }}
                         onEnded={() => {
                             setIsPlaying(false);
