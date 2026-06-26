@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { VideoPlayerPlaceholder } from "@/app/materi/[type]/[slug]/_components/video-player-placeholder";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { getPendingVideo, clearPendingVideo } from "@/lib/pending-video-store";
 
 interface UploadProgressProps {
     type: string;
@@ -89,18 +90,25 @@ export function UploadProgress({
         try {
             setStep("siap");
 
-            // Get file from object URL to upload
-            const response = await fetch(videoUrl);
-            const blob = await response.blob();
-
-            const fileName =
-                sessionStorage.getItem("pendingVideoName") ||
-                `video_${Date.now()}.webm`;
-            const mimeType =
-                sessionStorage.getItem("pendingVideoType") ||
-                blob.type ||
-                "video/webm";
-            const file = new File([blob], fileName, { type: mimeType });
+            // Prefer getting the File from the module-level store (strong reference, GC-safe).
+            // Fall back to fetching the blob URL for cases where the store was cleared
+            // (e.g. page refresh) — in that case sessionStorage still has the URL.
+            let file: File;
+            const pending = getPendingVideo();
+            if (pending) {
+                file = new File([pending.blob], pending.name, { type: pending.mimeType });
+            } else {
+                const response = await fetch(videoUrl);
+                const blob = await response.blob();
+                const fileName =
+                    sessionStorage.getItem("pendingVideoName") ||
+                    `video_${Date.now()}.webm`;
+                const mimeType =
+                    sessionStorage.getItem("pendingVideoType") ||
+                    blob.type ||
+                    "video/webm";
+                file = new File([blob], fileName, { type: mimeType });
+            }
 
             // Extract real duration & resolution from the video file.
             // If video was trimmed via VideoEditor (MediaRecorder webm), video.duration is 0.
@@ -122,7 +130,7 @@ export function UploadProgress({
             });
 
             setStep("upload");
-            await uploadVideoToCloud(uploadData.upload_url, file, mimeType);
+            await uploadVideoToCloud(uploadData.upload_url, file, file.type);
 
             setStep("simpan");
             console.log("", errorCategory);
@@ -145,14 +153,10 @@ export function UploadProgress({
             setStep("success");
             toast.success("Video berhasil diunggah!");
 
-            // Clear session storage
-            sessionStorage.removeItem("pendingVideoUrl");
-            sessionStorage.removeItem("pendingVideoName");
-            sessionStorage.removeItem("pendingVideoType");
-
-            // Revoke blob URL and redirect AFTER the success state is shown
+            // Revoke blob URL and redirect AFTER the success state is shown.
+            // clearPendingVideo() handles revoking the URL and clearing sessionStorage.
             setTimeout(() => {
-                URL.revokeObjectURL(videoUrl); // free memory after navigation
+                clearPendingVideo();
                 router.push("/upload");
             }, 1500);
         } catch (err) {

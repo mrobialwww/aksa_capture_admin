@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { setPendingVideo } from "@/lib/pending-video-store";
 
 export function VideoEditor() {
     const router = useRouter();
@@ -275,18 +276,15 @@ export function VideoEditor() {
             });
 
             const blob = new Blob(chunks, { type: mimeType });
-            const trimmedUrl = URL.createObjectURL(blob);
             const originalName =
                 sessionStorage.getItem("pendingVideoName") ||
                 `video_${Date.now()}.webm`;
             const trimmedName = `trimmed_${originalName.replace(/\.[^/.]+$/, "")}.webm`;
 
-            // Revoke old URL and store new trimmed one
-            const oldUrl = sessionStorage.getItem("pendingVideoUrl");
-
-            sessionStorage.setItem("pendingVideoUrl", trimmedUrl);
-            sessionStorage.setItem("pendingVideoName", trimmedName);
-            sessionStorage.setItem("pendingVideoType", mimeType);
+            // Store blob in module-level store to keep a strong JS reference.
+            // This prevents mobile browsers from GC-ing the in-memory blob
+            // before the preview page gets a chance to load it.
+            setPendingVideo(blob, trimmedName, mimeType);
 
             toast.success("Video berhasil diproses!");
             // Pass the real trim duration via URL — MediaRecorder webm files don't store
@@ -297,10 +295,6 @@ export function VideoEditor() {
                 String((effectiveEnd - effectiveStart).toFixed(3)),
             );
             router.push(`/upload/preview?${previewParams.toString()}`);
-
-            // Revoke old blob URL AFTER navigation so it's not revoked while still in use
-            if (oldUrl?.startsWith("blob:"))
-                setTimeout(() => URL.revokeObjectURL(oldUrl), 2000);
         } catch (err) {
             if (animId) cancelAnimationFrame(animId);
             console.error(err);
