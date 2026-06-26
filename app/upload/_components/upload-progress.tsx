@@ -149,10 +149,10 @@ export function UploadProgress({
             sessionStorage.removeItem("pendingVideoUrl");
             sessionStorage.removeItem("pendingVideoName");
             sessionStorage.removeItem("pendingVideoType");
-            URL.revokeObjectURL(videoUrl); // free memory
 
-            // Go back to step 1
+            // Revoke blob URL and redirect AFTER the success state is shown
             setTimeout(() => {
+                URL.revokeObjectURL(videoUrl); // free memory after navigation
                 router.push("/upload");
             }, 1500);
         } catch (err) {
