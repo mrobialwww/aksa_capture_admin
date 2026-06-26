@@ -251,6 +251,47 @@ export async function deleteVideo(
     return res.json();
 }
 
+// ────────────────────────── Direct Upload with Audio Strip ──────────────────
+export async function directUploadVideo(
+    file: File,
+    metadata: {
+        type: string;
+        label: string;
+        name: string;
+        gender: string;
+        is_correct: boolean;
+        error_category?: string;
+        capture_location: string;
+    }
+): Promise<{ sample_id: string; message: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", metadata.type);
+    formData.append("label", metadata.label);
+    formData.append("name", metadata.name);
+    formData.append("gender", metadata.gender);
+    formData.append("is_correct", metadata.is_correct.toString());
+    formData.append("capture_location", metadata.capture_location);
+    if (metadata.error_category) {
+        formData.append("error_category", metadata.error_category);
+    }
+
+    const res = await fetch(`${API_BASE}/api/v1/videos/direct-upload`, {
+        method: "POST",
+        body: formData,
+        // No COMMON_HEADERS because we don't want to set Content-Type: application/json.
+        // Fetch will automatically set Content-Type: multipart/form-data with the correct boundary.
+    });
+
+    if (!res.ok) {
+        throw new Error(
+            `Failed to direct upload video: ${res.status} ${res.statusText}`,
+        );
+    }
+
+    return res.json();
+}
+
 // ────────────────────────── Batch Upload ───────────────────
 
 export interface BatchUploadUrlItem {

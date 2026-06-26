@@ -17,12 +17,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/lib/store/useUserStore";
-import {
-    getBatchUploadUrls,
-    uploadVideoToCloud,
-    createBatchVideoMetadata,
-    BatchUploadUrlItem,
-} from "@/lib/api";
+import { directUploadVideo } from "@/lib/api";
 
 const MAX_FILES = 20;
 const MAX_FILE_SIZE_MB = 10;
@@ -33,7 +28,6 @@ interface BatchItem {
     file: File;
     status: "pending" | "uploading" | "success" | "error";
     errorMsg?: string;
-    uploadData?: BatchUploadUrlItem;
 }
 
 interface BatchUploaderProps {
@@ -141,46 +135,29 @@ export function BatchUploader({
 
         const backendType = type.toLowerCase() === "huruf" ? "letter" : "word";
 
-        // 1. Get presigned URLs for all items
-        let uploadUrls: BatchUploadUrlItem[];
-        try {
-            const payload = items.map(() => ({ type: backendType, label }));
-            const res = await getBatchUploadUrls(payload);
-            uploadUrls = res.data;
-        } catch (err) {
-            toast.error("Gagal mendapatkan URL upload. Periksa koneksi.");
-            setPhase("select");
-            return;
-        }
-
-        // Attach upload data to each item
-        setItems((prev) =>
-            prev.map((item, i) => ({ ...item, uploadData: uploadUrls[i] })),
-        );
-
-        // Snapshot items BEFORE async ops (closure safety)
+        // Snapshot items — safe reference for async ops
         const localItems = [...items];
 
-        // Track successful uploads via local Set (not React state which is stale in closure)
-        const successIds = new Set<string>();
-
-        // 2. Upload files to R2 with concurrency limit
-        const uploadFile = async (
-            item: BatchItem,
-            urlData: BatchUploadUrlItem,
-        ) => {
+        // Process one file: direct upload to backend (backend strips audio)
+        const processFile = async (item: BatchItem): Promise<void> => {
             setItems((prev) =>
                 prev.map((it) =>
                     it.id === item.id ? { ...it, status: "uploading" } : it,
                 ),
             );
+
             try {
-                await uploadVideoToCloud(
-                    urlData.upload_url,
-                    item.file,
-                    item.file.type,
-                );
-                successIds.add(item.id); // track locally
+                await directUploadVideo(item.file, {
+                    type: backendType,
+                    label,
+                    name,
+                    gender,
+                    is_correct: isCorrect,
+                    error_category:
+                        !isCorrect && errorCategory ? errorCategory : undefined,
+                    capture_location: captureLocation,
+                });
+
                 setItems((prev) =>
                     prev.map((it) =>
                         it.id === item.id ? { ...it, status: "success" } : it,
@@ -198,55 +175,16 @@ export function BatchUploader({
             }
         };
 
-        // Concurrency-limited runner — proper worker pool pattern
-        // Each worker picks the next task by pre-incrementing the shared index
-        // BEFORE any await, ensuring no two workers get the same task.
-        const queue = localItems.map(
-            (item, i) => () => uploadFile(item, uploadUrls[i]),
-        );
-
+        // Concurrency-limited worker pool
         let nextIdx = 0;
         const worker = async (): Promise<void> => {
-            while (nextIdx < queue.length) {
-                const idx = nextIdx++; // atomically grab next index before any await
-                await queue[idx]();
+            while (nextIdx < localItems.length) {
+                const idx = nextIdx++;
+                await processFile(localItems[idx]);
             }
         };
-
-        const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, queue.length);
+        const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, localItems.length);
         await Promise.all(Array.from({ length: workerCount }, worker));
-
-
-        // 3. Save metadata — use local successIds (NOT stale React state)
-        const successItems = localItems
-            .map((item, i) => ({ item, urlData: uploadUrls[i] }))
-            .filter(({ item }) => successIds.has(item.id));
-
-        if (successItems.length > 0) {
-            try {
-                await createBatchVideoMetadata(
-                    successItems.map(({ item, urlData }) => ({
-                        sample_id: urlData.sample_id,
-                        video_path: urlData.video_path,
-                        video_url: urlData.video_url,
-                        name,
-                        gender,
-                        gesture_type: backendType,
-                        gesture_name: label,
-                        is_correct: isCorrect,
-                        error_category:
-                            !isCorrect && errorCategory
-                                ? errorCategory
-                                : undefined,
-                        capture_location: captureLocation,
-                    })),
-                );
-            } catch (err) {
-                toast.error(
-                    "Video berhasil diupload ke storage, namun gagal menyimpan metadata.",
-                );
-            }
-        }
 
         setPhase("done");
     };
@@ -259,6 +197,7 @@ export function BatchUploader({
     const errorCount = items.filter((i) => i.status === "error").length;
     const uploadingCount = items.filter((i) => i.status === "uploading").length;
     const pendingCount = items.filter((i) => i.status === "pending").length;
+    const doneCount = successCount + errorCount;
 
     const formatSize = (bytes: number) => {
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -517,7 +456,7 @@ export function BatchUploader({
                                 : "Memproses..."}
                         </span>
                         <span>
-                            {successCount + errorCount} / {items.length}
+                            {doneCount} / {items.length}
                         </span>
                     </div>
                     <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
