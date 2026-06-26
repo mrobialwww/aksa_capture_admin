@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Camera, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Camera, Image as ImageIcon, Loader2, Images } from "lucide-react";
 import { toast } from "sonner";
 import { CameraRecorder } from "./camera-recorder";
 import { setPendingVideo } from "@/lib/pending-video-store";
@@ -19,6 +19,10 @@ export function SourcePicker() {
         if (!file) return;
 
         await processAndNavigate(file);
+    };
+
+    const handleBatchNavigate = () => {
+        router.push(`/upload/batch?${searchParams.toString()}`);
     };
 
     const handleRecordComplete = async (file: File) => {
@@ -108,6 +112,23 @@ export function SourcePicker() {
                         <Loader2 className="size-8 animate-spin text-primary" />
                     </div>
                 )}
+            </button>
+
+            {/* Batch upload — gallery only */}
+            <button
+                onClick={handleBatchNavigate}
+                disabled={isProcessing}
+                className="group flex items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/60 p-5 text-emerald-700 transition-all hover:border-emerald-400 hover:bg-emerald-50 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            >
+                <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 transition-transform group-hover:scale-110">
+                    <Images className="size-5" />
+                </div>
+                <div className="text-left">
+                    <h3 className="font-bold text-sm">Upload Banyak dari Galeri</h3>
+                    <p className="text-xs text-emerald-600 mt-0.5">
+                        Upload hingga 20 video sekaligus untuk kategori ini
+                    </p>
+                </div>
             </button>
         </div>
     );
