@@ -405,7 +405,7 @@ export function BatchUploader({
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="video/*,.mp4,.mov,.avi,.mkv,.webm"
+                accept="video/*"
                 multiple
                 className="hidden"
                 onChange={handleFileInputChange}
