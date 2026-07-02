@@ -71,11 +71,12 @@ export function BatchUploader({
         const skipped: string[] = [];
 
         for (const file of newFiles) {
-            const isVideoMime = file.type.startsWith("video/");
+            const isVideoMime = file.type.toLowerCase().startsWith("video/") || file.type.toLowerCase().includes("mp4");
             const isVideoExt = /\.(mp4|mov|avi|mkv|webm|m4v|3gp)$/i.test(file.name);
+            const isUnknownMime = !file.type || file.type === "application/octet-stream";
             
-            if (!isVideoMime && !isVideoExt) {
-                skipped.push(`${file.name} (bukan video)`);
+            if (!isVideoMime && !isVideoExt && !isUnknownMime) {
+                skipped.push(`${file.name} (tipe: ${file.type || 'kosong'}, bukan video)`);
                 continue;
             }
             if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
