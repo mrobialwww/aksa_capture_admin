@@ -66,7 +66,7 @@ export function SourcePicker() {
         <div className="flex flex-col gap-4">
             <input
                 type="file"
-                accept="video/*"
+                accept="video/*,.mp4,.mov,.avi,.mkv,.webm,video/mp4,video/x-m4v"
                 className="hidden"
                 ref={fileInputRef}
                 onChange={handleFileSelect}

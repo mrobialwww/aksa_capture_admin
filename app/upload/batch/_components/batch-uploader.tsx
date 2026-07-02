@@ -71,12 +71,11 @@ export function BatchUploader({
         const skipped: string[] = [];
 
         for (const file of newFiles) {
-            const isVideoMime = file.type.toLowerCase().startsWith("video/") || file.type.toLowerCase().includes("mp4");
+            const isVideoMime = file.type.startsWith("video/");
             const isVideoExt = /\.(mp4|mov|avi|mkv|webm|m4v|3gp)$/i.test(file.name);
-            const isUnknownMime = !file.type || file.type === "application/octet-stream";
             
-            if (!isVideoMime && !isVideoExt && !isUnknownMime) {
-                skipped.push(`${file.name} (tipe: ${file.type || 'kosong'}, bukan video)`);
+            if (!isVideoMime && !isVideoExt) {
+                skipped.push(`${file.name} (bukan video)`);
                 continue;
             }
             if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
@@ -406,7 +405,7 @@ export function BatchUploader({
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="video/*"
+                accept="video/*,.mp4,.mov,.avi,.mkv,.webm"
                 multiple
                 className="hidden"
                 onChange={handleFileInputChange}
