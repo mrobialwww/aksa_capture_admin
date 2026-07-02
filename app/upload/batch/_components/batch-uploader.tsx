@@ -71,12 +71,15 @@ export function BatchUploader({
         const skipped: string[] = [];
 
         for (const file of newFiles) {
-            if (!file.type.startsWith("video/")) {
+            const isVideoMime = file.type.startsWith("video/");
+            const isVideoExt = /\.(mp4|mov|avi|mkv|webm|m4v|3gp)$/i.test(file.name);
+            
+            if (!isVideoMime && !isVideoExt) {
                 skipped.push(`${file.name} (bukan video)`);
                 continue;
             }
             if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-                skipped.push(`${file.name} (>100MB)`);
+                skipped.push(`${file.name} (>${MAX_FILE_SIZE_MB}MB)`);
                 continue;
             }
             valid.push(file);
