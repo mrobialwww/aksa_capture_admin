@@ -31,12 +31,6 @@ export function VideoListCard({ video, displayLabel, type, slug }: VideoListCard
           {displayLabel}
         </span>
 
-        {/* Blue X in bottom-right when notes is empty */}
-        {!hasNotes && (
-          <div className="absolute bottom-2.5 right-2.5 flex size-5 items-center justify-center rounded-full bg-[#0A56D9]/10">
-            <X className="size-3 text-[#0A56D9]" strokeWidth={3} />
-          </div>
-        )}
       </Card>
     </Link>
   )

@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { HurufCard } from "./huruf-card";
 import { KataCard } from "./kata-card";
-import { HURUF_LIST, KATA_LIST, GROUPED_KATA_LIST, DESKTOP_KATA_ROWS } from "@/lib/constants";
+import {
+    HURUF_LIST,
+    KATA_LIST,
+    GROUPED_KATA_LIST,
+    DESKTOP_KATA_ROWS,
+} from "@/lib/constants";
 
 export function MateriTabs() {
     const [tab, setTab] = useState<string>("huruf");
@@ -135,26 +140,38 @@ export function MateriTabs() {
                 {/* Desktop View */}
                 <div className="hidden xl:flex flex-col gap-8">
                     {DESKTOP_KATA_ROWS.map((row, rowIdx) => {
-                        const totalItemsInRow = row.reduce((sum, g) => sum + g.length, 0);
+                        const totalItemsInRow = row.reduce(
+                            (sum, g) => sum + g.length,
+                            0,
+                        );
                         const remainingCols = 6 - totalItemsInRow;
-                        
+
                         return (
                             <div key={rowIdx} className="flex flex-col gap-8">
                                 <div className="flex flex-row gap-4 w-full">
                                     {row.map((group, groupIdx) => (
-                                        <div key={groupIdx} className="flex flex-row gap-4" style={{ flex: group.length }}>
-                                            <div 
+                                        <div
+                                            key={groupIdx}
+                                            className="flex flex-row gap-4"
+                                            style={{ flex: group.length }}
+                                        >
+                                            <div
                                                 className="grid gap-4 w-full"
-                                                style={{ gridTemplateColumns: `repeat(${group.length}, minmax(0, 1fr))` }}
+                                                style={{
+                                                    gridTemplateColumns: `repeat(${group.length}, minmax(0, 1fr))`,
+                                                }}
                                             >
                                                 {group.map((word) => {
-                                                    const index = KATA_LIST.indexOf(word);
+                                                    const index =
+                                                        KATA_LIST.indexOf(word);
                                                     return (
                                                         <KataCard
                                                             key={word}
                                                             index={index}
                                                             word={word}
-                                                            gerakanTab={gerakanTab}
+                                                            gerakanTab={
+                                                                gerakanTab
+                                                            }
                                                         />
                                                     );
                                                 })}
