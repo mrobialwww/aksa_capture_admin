@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { Play, Pause, Maximize, AlertCircle, Volume2, VolumeX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -17,83 +17,11 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
   const [currentTime, setCurrentTime] = useState('0:00')
   const [duration, setDuration] = useState('0:00')
   const [videoError, setVideoError] = useState<string | null>(null)
-  // Rotasi manual: mengatasi EXIF rotation yang diterapkan browser secara terlambat
-  // (moov atom di akhir file → browser terapkan rotasi setelah beberapa detik buffering)
-  const [rotationDeg, setRotationDeg] = useState(0)
 
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rafRef = useRef<number | null>(null)
-  const prevDimsRef = useRef<{ w: number; h: number } | null>(null)
 
-  // ─── Canvas render loop ────────────────────────────────────────────────────
-  // Menggambar frame video ke canvas setiap requestAnimationFrame.
-  // Dengan ini, rotasi yang diterapkan browser ke elemen <video> TIDAK mempengaruhi
-  // apa yang ditampilkan di canvas — kita mendapat frame mentah tanpa rotasi browser.
-  const drawFrame = useCallback(() => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas) return
+  // ─── Video controls ────────────────────────────────────────────────────────
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const vw = video.videoWidth
-    const vh = video.videoHeight
-
-    if (vw > 0 && vh > 0) {
-      // Deteksi perubahan dimensi: jika browser tiba-tiba menukar w/h,
-      // itu tandanya browser baru saja menerapkan rotasi 90°/270° dari metadata.
-      const prev = prevDimsRef.current
-      if (prev && (prev.w !== vw || prev.h !== vh)) {
-        // Dimensi berubah → browser menerapkan rotasi 90°/270°
-        // Koreksi balik: tambah 270° (= -90°) atau 90°
-        const wasSwapped = prev.w === vh && prev.h === vw
-        if (wasSwapped) {
-          setRotationDeg((d) => (d + 270) % 360)
-        }
-      }
-      prevDimsRef.current = { w: vw, h: vh }
-
-      // Sesuaikan ukuran canvas dengan dimensi video asli
-      if (canvas.width !== vw || canvas.height !== vh) {
-        canvas.width = vw
-        canvas.height = vh
-      }
-
-      // Terapkan rotasi kita sendiri ke canvas
-      ctx.save()
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      if (rotationDeg !== 0) {
-        ctx.translate(canvas.width / 2, canvas.height / 2)
-        ctx.rotate((rotationDeg * Math.PI) / 180)
-        ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh)
-      } else {
-        ctx.drawImage(video, 0, 0, vw, vh)
-      }
-
-      ctx.restore()
-    }
-
-    rafRef.current = requestAnimationFrame(drawFrame)
-  }, [rotationDeg])
-
-  // Mulai/hentikan render loop sesuai status playing
-  useEffect(() => {
-    if (isPlaying) {
-      rafRef.current = requestAnimationFrame(drawFrame)
-    } else {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      // Gambar 1 frame saat pause agar canvas tidak blank
-      drawFrame()
-    }
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [isPlaying, drawFrame])
-
-  // ─── Video event handlers ──────────────────────────────────────────────────
   const toggle = async () => {
     const v = videoRef.current
     if (!v) return
@@ -114,7 +42,7 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
 
   const handleTimeUpdate = () => {
     const v = videoRef.current
-    if (!v || isNaN(v.duration)) return
+    if (!v || isNaN(v.duration) || v.duration === 0) return
     setProgress((v.currentTime / v.duration) * 100)
     setCurrentTime(fmt(v.currentTime))
   }
@@ -122,16 +50,13 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
   const handleLoadedMetadata = () => {
     const v = videoRef.current
     if (!v) return
-    if (!isNaN(v.duration)) setDuration(fmt(v.duration))
-    // Simpan dimensi awal sebagai referensi deteksi rotasi browser yang terlambat
-    prevDimsRef.current = { w: v.videoWidth, h: v.videoHeight }
-    // Gambar frame pertama ke canvas
-    drawFrame()
+    if (!isNaN(v.duration) && isFinite(v.duration)) {
+      setDuration(fmt(v.duration))
+    }
   }
 
   const handleEnded = () => {
     setIsPlaying(false)
-    drawFrame()
   }
 
   const handleError = () => {
@@ -139,7 +64,22 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
     setVideoError('Video tidak dapat dimuat. Periksa URL atau koneksi.')
   }
 
-  // ─── Formatting ────────────────────────────────────────────────────────
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const v = videoRef.current
+    if (!v || isNaN(v.duration)) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const ratio = (e.clientX - rect.left) / rect.width
+    v.currentTime = ratio * v.duration
+  }
+
+  const handleFullscreen = () => {
+    const v = videoRef.current
+    if (!v) return
+    if (v.requestFullscreen) v.requestFullscreen()
+    else if ((v as any).webkitRequestFullscreen) (v as any).webkitRequestFullscreen()
+  }
+
+  // ─── Formatting ─────────────────────────────────────────────────────────────
 
   const fmt = (s: number) => {
     if (!isFinite(s) || isNaN(s)) return '0:00'
@@ -148,23 +88,17 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
     return `${m}:${String(sec).padStart(2, '0')}`
   }
 
-  // Canvas fullscreen
-  const handleFullscreen = () => {
-    const canvas = canvasRef.current
-    if (canvas?.requestFullscreen) canvas.requestFullscreen()
-  }
-
   return (
     <div className={cn("flex flex-col items-center gap-2 w-full", className)} style={style}>
-      {/* Container dinamis (default portrait 9:16 jika tidak di-override) */}
+      {/* Container */}
       <div
-        className="group relative w-full h-full overflow-hidden rounded-2xl bg-slate-900 shadow-sm ring-1 ring-border/10"
-        style={{ 
+        className="group relative w-full overflow-hidden rounded-2xl bg-slate-900 shadow-sm ring-1 ring-border/10"
+        style={{
           aspectRatio: style?.aspectRatio || '9 / 16',
           maxHeight: style?.maxHeight || '65vh',
         }}
       >
-        {/* Video tersembunyi — hanya sebagai sumber frame, tidak ditampilkan */}
+        {/* Video element — browser handles rotation via metadata automatically */}
         {videoUrl && (
           <video
             ref={videoRef}
@@ -172,21 +106,11 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
             preload="metadata"
             playsInline
             muted={isMuted}
-            className="absolute inset-0 h-full w-full"
-            style={{ visibility: 'hidden', pointerEvents: 'none' }}
+            className="absolute inset-0 h-full w-full object-contain"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onEnded={handleEnded}
             onError={handleError}
-          />
-        )}
-
-        {/* Canvas — menampilkan frame video tanpa rotasi dari browser */}
-        {videoUrl && !videoError && (
-          <canvas
-            ref={canvasRef}
-            className="absolute inset-0 h-full w-full"
-            style={{ objectFit: 'contain' }}
           />
         )}
 
@@ -230,7 +154,10 @@ export function VideoPlayerPlaceholder({ videoUrl, className, style }: VideoPlay
           </button>
 
           {/* Progress Bar */}
-          <div className="flex h-5 flex-1 cursor-pointer items-center">
+          <div
+            className="flex h-5 flex-1 cursor-pointer items-center"
+            onClick={handleSeek}
+          >
             <div className="relative h-1.5 w-full rounded-full bg-white/20">
               <div
                 className="absolute left-0 top-0 h-full rounded-full bg-[#0A56D9] transition-all"

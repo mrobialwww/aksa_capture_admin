@@ -223,7 +223,8 @@ export function BatchUploader({
                 await uploadVideoToCloud(
                     urlData.upload_url,
                     fileToUpload,
-                    fileToUpload.type,
+                    // Ensure a non-empty Content-Type so R2 doesn't return a downloadable response.
+                    fileToUpload.type && fileToUpload.type.trim() !== "" ? fileToUpload.type : "video/mp4",
                 );
                 successIds.add(item.id);
                 setItems((prev) =>

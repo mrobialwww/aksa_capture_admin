@@ -158,10 +158,15 @@ export async function uploadVideoToCloud(
     file: File,
     mimeType: string,
 ): Promise<void> {
+    // Guard: if mimeType is empty (common when picking files from Android/Windows gallery),
+    // fall back to video/mp4 to prevent the browser from treating R2's response
+    // as a file download (which can open File Explorer on Windows).
+    const safeContentType = mimeType && mimeType.trim() !== "" ? mimeType : "video/mp4";
+
     const res = await fetch(uploadUrl, {
         method: "PUT",
         headers: {
-            "Content-Type": mimeType,
+            "Content-Type": safeContentType,
         },
         body: file,
     });

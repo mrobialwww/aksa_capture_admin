@@ -106,7 +106,7 @@ export function UploadProgress({
                 const mimeType =
                     sessionStorage.getItem("pendingVideoType") ||
                     blob.type ||
-                    "video/webm";
+                    "video/mp4";
                 file = new File([blob], fileName, { type: mimeType });
             }
 
@@ -130,7 +130,9 @@ export function UploadProgress({
             });
 
             setStep("upload");
-            await uploadVideoToCloud(uploadData.upload_url, file, file.type);
+            // Ensure a non-empty Content-Type so R2 doesn't return a downloadable response.
+            const contentType = file.type && file.type.trim() !== "" ? file.type : "video/mp4";
+            await uploadVideoToCloud(uploadData.upload_url, file, contentType);
 
             setStep("simpan");
             console.log("", errorCategory);
