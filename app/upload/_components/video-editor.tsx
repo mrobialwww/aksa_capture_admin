@@ -1,15 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import FixWebmDuration from "fix-webm-duration";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-    Play,
-    Pause,
-    Scissors,
-    ChevronRight,
-    Loader2,
-    RotateCw,
-} from "lucide-react";
+import { Play, Pause, Scissors, ChevronRight, Loader2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -31,9 +25,7 @@ export function VideoEditor() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [rotation, setRotation] = useState<number>(0);
     const [isExporting, setIsExporting] = useState(false);
-    const [isDragging, setIsDragging] = useState<
-        "start" | "end" | "playhead" | null
-    >(null);
+    const [isDragging, setIsDragging] = useState<"start" | "end" | "playhead" | null>(null);
 
     // Load video from sessionStorage
     useEffect(() => {
@@ -97,13 +89,11 @@ export function VideoEditor() {
     };
 
     // Mouse / touch drag handlers
-    const startDrag =
-        (handle: "start" | "end") =>
-        (e: React.MouseEvent | React.TouchEvent) => {
-            e.preventDefault();
-            handlePause();
-            setIsDragging(handle);
-        };
+    const startDrag = (handle: "start" | "end") => (e: React.MouseEvent | React.TouchEvent) => {
+        e.preventDefault();
+        handlePause();
+        setIsDragging(handle);
+    };
 
     useEffect(() => {
         const onMove = (e: MouseEvent | TouchEvent) => {
@@ -112,12 +102,10 @@ export function VideoEditor() {
             const t = xToTime(clientX);
             if (isDragging === "start") {
                 setStartTime(Math.min(t, endTime - 0.1));
-                if (videoRef.current)
-                    videoRef.current.currentTime = Math.min(t, endTime - 0.1);
+                if (videoRef.current) videoRef.current.currentTime = Math.min(t, endTime - 0.1);
             } else {
                 setEndTime(Math.max(t, startTime + 0.1));
-                if (videoRef.current)
-                    videoRef.current.currentTime = Math.max(t, startTime + 0.1);
+                if (videoRef.current) videoRef.current.currentTime = Math.max(t, startTime + 0.1);
             }
         };
         const onUp = () => setIsDragging(null);
@@ -152,14 +140,11 @@ export function VideoEditor() {
         let animId: number | undefined;
 
         const effectiveStart = startTime;
-        const effectiveEnd =
-            endTime > 0 && isFinite(endTime) ? endTime : duration;
+        const effectiveEnd = endTime > 0 && isFinite(endTime) ? endTime : duration;
 
         // Guard: if duration is still Infinity (WebM metadata not yet resolved), abort.
         if (!isFinite(effectiveEnd) || effectiveEnd === 0) {
-            toast.error(
-                "Durasi video belum terbaca. Tunggu sebentar lalu coba lagi.",
-            );
+            toast.error("Durasi video belum terbaca. Tunggu sebentar lalu coba lagi.");
             setIsExporting(false);
             return;
         }
@@ -192,14 +177,10 @@ export function VideoEditor() {
             canvas.height = Math.round(origHeight * scale);
             const ctx = canvas.getContext("2d");
 
-            if (!ctx)
-                throw new Error("Gagal memuat canvas untuk kompresi video");
+            if (!ctx) throw new Error("Gagal memuat canvas untuk kompresi video");
 
-            stream =
-                (canvas as any).captureStream?.(30) ??
-                (canvas as any).mozCaptureStream?.(30);
-            if (!stream)
-                throw new Error("Browser tidak mendukung canvas captureStream");
+            stream = (canvas as any).captureStream?.(30) ?? (canvas as any).mozCaptureStream?.(30);
+            if (!stream) throw new Error("Browser tidak mendukung canvas captureStream");
 
             const drawCanvas = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -225,11 +206,7 @@ export function VideoEditor() {
             animId = requestAnimationFrame(drawCanvas);
 
             const chunks: Blob[] = [];
-            const mimeType = MediaRecorder.isTypeSupported(
-                "video/webm;codecs=vp8,opus",
-            )
-                ? "video/webm;codecs=vp8,opus"
-                : "video/webm";
+            const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus") ? "video/webm;codecs=vp8,opus" : "video/webm";
 
             const recorder = new MediaRecorder(stream, {
                 mimeType,
@@ -286,40 +263,33 @@ export function VideoEditor() {
             });
 
             const blob = new Blob(chunks, { type: mimeType });
-            const originalName =
-                sessionStorage.getItem("pendingVideoName") ||
-                `video_${Date.now()}.webm`;
+            const durationMs = (effectiveEnd - effectiveStart) * 1000;
+            const fixedBlob = await FixWebmDuration(blob, durationMs);
+
+            const originalName = sessionStorage.getItem("pendingVideoName") || `video_${Date.now()}.webm`;
             const trimmedName = `trimmed_${originalName.replace(/\.[^/.]+$/, "")}.webm`;
 
             // Store blob in module-level store to keep a strong JS reference.
             // This prevents mobile browsers from GC-ing the in-memory blob
             // before the preview page gets a chance to load it.
-            setPendingVideo(blob, trimmedName, mimeType);
+            setPendingVideo(fixedBlob, trimmedName, mimeType);
 
             toast.success("Video berhasil diproses!");
             // Pass the real trim duration via URL — MediaRecorder webm files don't store
             // duration in their header, so we compute it here and forward it as a query param.
             const previewParams = new URLSearchParams(searchParams.toString());
-            previewParams.set(
-                "duration_sec",
-                String((effectiveEnd - effectiveStart).toFixed(3)),
-            );
+            previewParams.set("duration_sec", String((effectiveEnd - effectiveStart).toFixed(3)));
             router.push(`/upload/preview?${previewParams.toString()}`);
         } catch (err) {
             if (animId) cancelAnimationFrame(animId);
             console.error(err);
-            toast.error(
-                err instanceof Error ? err.message : "Gagal memproses video",
-            );
+            toast.error(err instanceof Error ? err.message : "Gagal memproses video");
             setIsExporting(false);
         }
     };
 
-    const pct = (t: number) =>
-        duration > 0 && isFinite(duration) ? `${(t / duration) * 100}%` : "0%";
-    const trimDuration = isFinite(endTime - startTime)
-        ? (endTime - startTime).toFixed(1)
-        : "...";
+    const pct = (t: number) => (duration > 0 && isFinite(duration) ? `${(t / duration) * 100}%` : "0%");
+    const trimDuration = isFinite(endTime - startTime) ? (endTime - startTime).toFixed(1) : "...";
 
     const formatTime = (t: number) => {
         if (!isFinite(t) || isNaN(t) || t < 0) return "0:00.0";
@@ -393,11 +363,7 @@ export function VideoEditor() {
                         onClick={isPlaying ? handlePause : handlePlay}
                         className="size-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors"
                     >
-                        {isPlaying ? (
-                            <Pause className="size-5" />
-                        ) : (
-                            <Play className="size-5 ml-0.5" />
-                        )}
+                        {isPlaying ? <Pause className="size-5" /> : <Play className="size-5 ml-0.5" />}
                     </button>
                     <button
                         onClick={() => setRotation((r) => (r + 90) % 360)}
@@ -420,17 +386,11 @@ export function VideoEditor() {
                             <Scissors className="size-4 text-primary" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-[#001D4A]">
-                                Trim Video
-                            </h3>
-                            <p className="text-xs text-muted-foreground">
-                                Seret handle untuk mengatur titik awal & akhir
-                            </p>
+                            <h3 className="text-sm font-bold text-[#001D4A]">Trim Video</h3>
+                            <p className="text-xs text-muted-foreground">Seret handle untuk mengatur titik awal & akhir</p>
                         </div>
                     </div>
-                    <span className="text-sm font-mono font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
-                        {trimDuration}s
-                    </span>
+                    <span className="text-sm font-mono font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{trimDuration}s</span>
                 </div>
 
                 {/* Timeline */}
@@ -495,10 +455,7 @@ export function VideoEditor() {
                         </div>
 
                         {/* Playhead */}
-                        <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 pointer-events-none"
-                            style={{ left: pct(currentTime) }}
-                        >
+                        <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 pointer-events-none" style={{ left: pct(currentTime) }}>
                             <div className="absolute -top-1 left-1/2 -translate-x-1/2 size-2.5 rounded-full bg-red-500" />
                         </div>
                     </div>

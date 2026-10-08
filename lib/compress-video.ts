@@ -11,6 +11,8 @@
  * Can be used standalone without any React state.
  */
 
+import FixWebmDuration from "fix-webm-duration";
+
 const TARGET_BITRATE = 850_000; // 850 kbps — same as video-editor
 const TARGET_FPS = 30;
 
@@ -124,9 +126,7 @@ export async function compressVideo(file: File): Promise<File> {
             canvas.height = canvasH;
             const ctx = canvas.getContext("2d")!;
 
-            const stream: MediaStream =
-                (canvas as any).captureStream?.(TARGET_FPS) ??
-                (canvas as any).mozCaptureStream?.(TARGET_FPS);
+            const stream: MediaStream = (canvas as any).captureStream?.(TARGET_FPS) ?? (canvas as any).mozCaptureStream?.(TARGET_FPS);
 
             if (!stream) {
                 cleanup();
@@ -134,9 +134,7 @@ export async function compressVideo(file: File): Promise<File> {
                 return;
             }
 
-            const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
-                ? "video/webm;codecs=vp8,opus"
-                : "video/webm";
+            const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus") ? "video/webm;codecs=vp8,opus" : "video/webm";
 
             const recorder = new MediaRecorder(stream, {
                 mimeType,
@@ -170,7 +168,7 @@ export async function compressVideo(file: File): Promise<File> {
 
             videoEl.onended = stopAndFinish;
 
-            recorder.onstop = () => {
+            recorder.onstop = async () => {
                 if (safetyTimer) clearTimeout(safetyTimer);
                 cleanup();
 
@@ -185,17 +183,32 @@ export async function compressVideo(file: File): Promise<File> {
                     return;
                 }
 
-                const baseName = file.name.replace(/\.[^/.]+$/, "");
-                const compressedFile = new File([blob], `${baseName}.webm`, {
-                    type: mimeType,
-                    lastModified: Date.now(),
-                });
+                try {
+                    const durationMs = Date.now() - compressionStartTime;
+                    const fixedBlob = await FixWebmDuration(blob, durationMs);
 
-                resolve(compressedFile);
+                    const baseName = file.name.replace(/\.[^/.]+$/, "");
+                    const compressedFile = new File([fixedBlob], `${baseName}.webm`, {
+                        type: mimeType,
+                        lastModified: Date.now(),
+                    });
+
+                    resolve(compressedFile);
+                } catch (err) {
+                    // Fallback to original blob if fix fails
+                    const baseName = file.name.replace(/\.[^/.]+$/, "");
+                    const compressedFile = new File([blob], `${baseName}.webm`, {
+                        type: mimeType,
+                        lastModified: Date.now(),
+                    });
+                    resolve(compressedFile);
+                }
             };
 
+            let compressionStartTime = 0;
             const beginRecording = () => {
                 animId = requestAnimationFrame(drawFrame);
+                compressionStartTime = Date.now();
                 recorder.start(100);
                 recorderStarted = true;
                 lastSafetyStartTime = Date.now();

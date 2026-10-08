@@ -68,6 +68,9 @@ export interface BatchVideoMetadataItem {
     is_correct: boolean;
     error_category?: string;
     capture_location: string;
+    duration_sec: number;
+    resolution_width: number;
+    resolution_height: number;
 }
 
 export interface BatchCreateResult {
@@ -105,9 +108,7 @@ export async function getVideos(params: {
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to fetch videos: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to fetch videos: ${res.status} ${res.statusText}`);
     }
 
     return res.json() as Promise<VideosListResponse>;
@@ -120,19 +121,14 @@ export async function getVideoById(id: string): Promise<VideoDetailResponse> {
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to fetch video: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to fetch video: ${res.status} ${res.statusText}`);
     }
 
     return res.json() as Promise<VideoDetailResponse>;
 }
 
 // ────────────────────────── Upload helpers ──────────────────
-export async function getUploadUrl(params: {
-    type: string;
-    label: string;
-}): Promise<{
+export async function getUploadUrl(params: { type: string; label: string }): Promise<{
     sample_id: string;
     video_path: string;
     upload_url: string;
@@ -145,19 +141,13 @@ export async function getUploadUrl(params: {
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to get upload URL: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to get upload URL: ${res.status} ${res.statusText}`);
     }
 
     return res.json();
 }
 
-export async function uploadVideoToCloud(
-    uploadUrl: string,
-    file: File,
-    mimeType: string,
-): Promise<void> {
+export async function uploadVideoToCloud(uploadUrl: string, file: File, mimeType: string): Promise<void> {
     // Guard: if mimeType is empty (common when picking files from Android/Windows gallery),
     // fall back to video/mp4 to prevent the browser from treating R2's response
     // as a file download (which can open File Explorer on Windows).
@@ -172,9 +162,7 @@ export async function uploadVideoToCloud(
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to upload to cloud: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to upload to cloud: ${res.status} ${res.statusText}`);
     }
 }
 
@@ -217,10 +205,7 @@ export async function createVideoMetadata(params: {
         },
         signer: {
             signer_name: params.name,
-            gender:
-                params.gender === "laki-laki" || params.gender === "male"
-                    ? "male"
-                    : "female",
+            gender: params.gender === "laki-laki" || params.gender === "male" ? "male" : "female",
         },
     };
 
@@ -231,26 +216,20 @@ export async function createVideoMetadata(params: {
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to create video metadata: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to create video metadata: ${res.status} ${res.statusText}`);
     }
 
     return res.json();
 }
 
-export async function deleteVideo(
-    sampleId: string,
-): Promise<{ message: string }> {
+export async function deleteVideo(sampleId: string): Promise<{ message: string }> {
     const res = await fetch(`${API_BASE}/api/v1/videos/${sampleId}`, {
         method: "DELETE",
         headers: COMMON_HEADERS,
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to delete video: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to delete video: ${res.status} ${res.statusText}`);
     }
 
     return res.json();
@@ -266,9 +245,7 @@ export interface BatchUploadUrlItem {
 }
 
 /** Generate presigned upload URLs for up to 20 videos at once. */
-export async function getBatchUploadUrls(
-    items: { type: string; label: string }[],
-): Promise<{ data: BatchUploadUrlItem[] }> {
+export async function getBatchUploadUrls(items: { type: string; label: string }[]): Promise<{ data: BatchUploadUrlItem[] }> {
     const res = await fetch(`${API_BASE}/api/v1/upload-url/batch`, {
         method: "POST",
         headers: COMMON_HEADERS,
@@ -276,24 +253,25 @@ export async function getBatchUploadUrls(
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to get batch upload URLs: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to get batch upload URLs: ${res.status} ${res.statusText}`);
     }
 
     return res.json();
 }
 
 /** Save metadata for multiple videos at once (max 20). */
-export async function createBatchVideoMetadata(
-    params: BatchVideoMetadataItem[],
-): Promise<BatchCreateResult> {
+export async function createBatchVideoMetadata(params: BatchVideoMetadataItem[]): Promise<BatchCreateResult> {
     const items = params.map((p) => ({
         sample_id: p.sample_id,
         media: {
             video_path: p.video_path,
             video_url: p.video_url,
             capture_location: p.capture_location,
+            duration_sec: p.duration_sec,
+            resolution: {
+                width: p.resolution_width,
+                height: p.resolution_height,
+            },
         },
         label: {
             gesture_type: p.gesture_type,
@@ -307,10 +285,7 @@ export async function createBatchVideoMetadata(
         },
         signer: {
             signer_name: p.name,
-            gender:
-                p.gender === "laki-laki" || p.gender === "male"
-                    ? "male"
-                    : "female",
+            gender: p.gender === "laki-laki" || p.gender === "male" ? "male" : "female",
         },
     }));
 
@@ -321,9 +296,7 @@ export async function createBatchVideoMetadata(
     });
 
     if (!res.ok) {
-        throw new Error(
-            `Failed to create batch video metadata: ${res.status} ${res.statusText}`,
-        );
+        throw new Error(`Failed to create batch video metadata: ${res.status} ${res.statusText}`);
     }
 
     return res.json();

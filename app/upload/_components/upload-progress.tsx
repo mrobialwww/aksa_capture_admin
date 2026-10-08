@@ -5,14 +5,11 @@ import { useRouter } from "next/navigation";
 import { UploadCloud, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import {
-    getUploadUrl,
-    uploadVideoToCloud,
-    createVideoMetadata,
-} from "@/lib/api";
+import { getUploadUrl, uploadVideoToCloud, createVideoMetadata } from "@/lib/api";
 import { VideoPlayerPlaceholder } from "@/app/materi/[type]/[slug]/_components/video-player-placeholder";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { getPendingVideo, clearPendingVideo } from "@/lib/pending-video-store";
+import { compressVideo } from "@/lib/compress-video";
 
 interface UploadProgressProps {
     type: string;
@@ -23,23 +20,9 @@ interface UploadProgressProps {
     durationSec?: number;
 }
 
-type UploadStep =
-    | "idle"
-    | "siap"
-    | "url"
-    | "upload"
-    | "simpan"
-    | "success"
-    | "error";
+type UploadStep = "idle" | "siap" | "kompresi" | "url" | "upload" | "simpan" | "success" | "error";
 
-export function UploadProgress({
-    type,
-    label,
-    isCorrect,
-    errorCategory,
-    captureLocation,
-    durationSec,
-}: UploadProgressProps) {
+export function UploadProgress({ type, label, isCorrect, errorCategory, captureLocation, durationSec }: UploadProgressProps) {
     const router = useRouter();
     const { name, gender } = useUserStore();
     const [videoUrl, setVideoUrl] = useState<string>("");
@@ -53,28 +36,33 @@ export function UploadProgress({
             setVideoUrl(url);
         } else {
             toast.error("Video tidak ditemukan. Silakan pilih kembali.");
-            router.push(
-                `/upload/source?type=${type}&label=${label}&is_correct=${isCorrect}`,
-            );
+            router.push(`/upload/source?type=${type}&label=${label}&is_correct=${isCorrect}`);
         }
     }, [type, label, isCorrect, router]);
 
-    const getVideoMetadata = (
-        file: File,
-    ): Promise<{ duration_sec: number; width: number; height: number }> => {
+    const getVideoMetadata = (file: File): Promise<{ duration_sec: number; width: number; height: number }> => {
         return new Promise((resolve, reject) => {
             const video = document.createElement("video");
             video.preload = "metadata";
-            video.onloadedmetadata = () => {
+            const tryResolve = () => {
+                const dur = video.duration;
                 resolve({
-                    duration_sec: video.duration,
+                    duration_sec: isFinite(dur) && dur > 0 ? dur : 0,
                     width: video.videoWidth,
                     height: video.videoHeight,
                 });
                 URL.revokeObjectURL(video.src);
             };
-            video.onerror = () =>
-                reject(new Error("Gagal membaca metadata video"));
+            video.onloadedmetadata = () => {
+                if (isFinite(video.duration) && video.duration > 0) {
+                    tryResolve();
+                } else {
+                    // Seek trick: force browser to scan the full file for duration
+                    video.addEventListener("seeked", tryResolve, { once: true });
+                    video.currentTime = 1e101;
+                }
+            };
+            video.onerror = () => reject(new Error("Gagal membaca metadata video"));
             video.src = URL.createObjectURL(file);
         });
     };
@@ -100,26 +88,23 @@ export function UploadProgress({
             } else {
                 const response = await fetch(videoUrl);
                 const blob = await response.blob();
-                const fileName =
-                    sessionStorage.getItem("pendingVideoName") ||
-                    `video_${Date.now()}.webm`;
-                const mimeType =
-                    sessionStorage.getItem("pendingVideoType") ||
-                    blob.type ||
-                    "video/mp4";
+                const fileName = sessionStorage.getItem("pendingVideoName") || `video_${Date.now()}.webm`;
+                const mimeType = sessionStorage.getItem("pendingVideoType") || blob.type || "video/mp4";
                 file = new File([blob], fileName, { type: mimeType });
             }
 
-            // Extract real duration & resolution from the video file.
-            // If video was trimmed via VideoEditor (MediaRecorder webm), video.duration is 0.
-            // In that case we rely on the durationSec prop passed from the URL.
-            const {
-                duration_sec: rawDuration,
-                width,
-                height,
-            } = await getVideoMetadata(file);
-            const duration_sec =
-                durationSec !== undefined ? durationSec : rawDuration;
+            // Compress & fix WebM duration header for ALL files (MP4 from gallery,
+            // WebM from recorder, etc.). compressVideo() internally uses fix-webm-duration
+            // so the output always has a valid duration header readable by browsers & R2.
+            setStep("kompresi");
+            const compressedFile = await compressVideo(file);
+
+            // Read duration & resolution from the compressed file.
+            // After compressVideo + fix-webm-duration, video.duration is always finite.
+            const { duration_sec: rawDuration, width, height } = await getVideoMetadata(compressedFile);
+            // Prefer the durationSec prop (from trimmed video URL param) if provided,
+            // because the seek-trick on a freshly-encoded file can be slightly less accurate.
+            const duration_sec = durationSec !== undefined && durationSec > 0 ? durationSec : rawDuration;
 
             const apiType = type.toLowerCase() === "huruf" ? "letter" : "word";
 
@@ -131,8 +116,8 @@ export function UploadProgress({
 
             setStep("upload");
             // Ensure a non-empty Content-Type so R2 doesn't return a downloadable response.
-            const contentType = file.type && file.type.trim() !== "" ? file.type : "video/mp4";
-            await uploadVideoToCloud(uploadData.upload_url, file, contentType);
+            const contentType = compressedFile.type && compressedFile.type.trim() !== "" ? compressedFile.type : "video/webm";
+            await uploadVideoToCloud(uploadData.upload_url, compressedFile, contentType);
 
             setStep("simpan");
             console.log("", errorCategory);
@@ -164,15 +149,14 @@ export function UploadProgress({
         } catch (err) {
             console.error(err);
             setStep("error");
-            setErrorMsg(
-                err instanceof Error ? err.message : "Gagal mengunggah video",
-            );
+            setErrorMsg(err instanceof Error ? err.message : "Gagal mengunggah video");
             toast.error("Proses upload gagal");
         }
     };
 
     const steps = [
         { id: "siap", label: "Persiapan" },
+        { id: "kompresi", label: "Kompresi" },
         { id: "url", label: "Minta URL" },
         { id: "upload", label: "Upload" },
         { id: "simpan", label: "Simpan" },
@@ -183,9 +167,7 @@ export function UploadProgress({
     return (
         <div className="flex flex-col gap-6">
             {/* Video Preview */}
-            <div className="rounded-2xl overflow-hidden bg-black shadow-sm">
-                {videoUrl && <VideoPlayerPlaceholder videoUrl={videoUrl} />}
-            </div>
+            <div className="rounded-2xl overflow-hidden bg-black shadow-sm">{videoUrl && <VideoPlayerPlaceholder videoUrl={videoUrl} />}</div>
 
             {/* Progress or Upload Button */}
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-border/50">
@@ -211,15 +193,11 @@ export function UploadProgress({
                             <CheckCircle2 className="size-8 text-emerald-600" />
                         </div>
                         <h3 className="font-bold text-lg">Upload Berhasil!</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Mengarahkan kembali...
-                        </p>
+                        <p className="text-sm text-muted-foreground">Mengarahkan kembali...</p>
                     </div>
                 ) : (
                     <div className="py-4 space-y-6">
-                        <h3 className="font-bold text-center text-[#001D4A]">
-                            Sedang Mengunggah...
-                        </h3>
+                        <h3 className="font-bold text-center text-[#001D4A]">Sedang Mengunggah...</h3>
 
                         <div className="relative flex justify-between">
                             <div className="absolute left-0 top-3 w-full h-1 bg-muted rounded-full -z-10" />
@@ -235,10 +213,7 @@ export function UploadProgress({
                                 const isCurrent = step === s.id;
 
                                 return (
-                                    <div
-                                        key={s.id}
-                                        className="flex flex-col items-center gap-2"
-                                    >
+                                    <div key={s.id} className="flex flex-col items-center gap-2">
                                         <div
                                             className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                                                 isPast
@@ -248,15 +223,9 @@ export function UploadProgress({
                                                       : "bg-muted text-muted-foreground border-2 border-background"
                                             }`}
                                         >
-                                            {isPast ? (
-                                                <CheckCircle2 className="size-4" />
-                                            ) : (
-                                                i + 1
-                                            )}
+                                            {isPast ? <CheckCircle2 className="size-4" /> : i + 1}
                                         </div>
-                                        <span
-                                            className={`text-[10px] font-bold ${isCurrent || isPast ? "text-primary" : "text-muted-foreground"}`}
-                                        >
+                                        <span className={`text-[10px] font-bold ${isCurrent || isPast ? "text-primary" : "text-muted-foreground"}`}>
                                             {s.label}
                                         </span>
                                     </div>

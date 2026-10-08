@@ -2,28 +2,43 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-    Upload,
-    X,
-    FileVideo,
-    AlertCircle,
-    CheckCircle2,
-    Loader2,
-    Images,
-    CloudUpload,
-    RotateCcw,
-} from "lucide-react";
+import { Upload, X, FileVideo, AlertCircle, CheckCircle2, Loader2, Images, CloudUpload, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUserStore } from "@/lib/store/useUserStore";
-import {
-    getBatchUploadUrls,
-    uploadVideoToCloud,
-    createBatchVideoMetadata,
-    BatchUploadUrlItem,
-} from "@/lib/api";
+import { getBatchUploadUrls, uploadVideoToCloud, createBatchVideoMetadata, BatchUploadUrlItem } from "@/lib/api";
 import { compressVideo } from "@/lib/compress-video";
+
+const getVideoMetadata = (file: File): Promise<{ duration_sec: number; width: number; height: number }> => {
+    return new Promise((resolve) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+
+        video.onloadedmetadata = () => {
+            if (video.duration === Infinity || isNaN(video.duration)) {
+                video.currentTime = 1e101;
+                video.ontimeupdate = () => {
+                    video.ontimeupdate = null;
+                    resolve({
+                        duration_sec: video.duration,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                    });
+                    URL.revokeObjectURL(video.src);
+                };
+            } else {
+                resolve({
+                    duration_sec: video.duration,
+                    width: video.videoWidth,
+                    height: video.videoHeight,
+                });
+                URL.revokeObjectURL(video.src);
+            }
+        };
+        video.src = URL.createObjectURL(file);
+    });
+};
 
 const MAX_FILES = 20;
 const MAX_FILE_SIZE_MB = 10;
@@ -47,13 +62,7 @@ interface BatchUploaderProps {
 
 type UploadPhase = "select" | "uploading" | "done";
 
-export function BatchUploader({
-    type,
-    label,
-    isCorrect,
-    errorCategory,
-    captureLocation,
-}: BatchUploaderProps) {
+export function BatchUploader({ type, label, isCorrect, errorCategory, captureLocation }: BatchUploaderProps) {
     const router = useRouter();
     const { name, gender } = useUserStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,7 +82,7 @@ export function BatchUploader({
         for (const file of newFiles) {
             const isVideoMime = file.type.startsWith("video/");
             const isVideoExt = /\.(mp4|mov|avi|mkv|webm|m4v|3gp)$/i.test(file.name);
-            
+
             if (!isVideoMime && !isVideoExt) {
                 skipped.push(`${file.name} (bukan video)`);
                 continue;
@@ -98,17 +107,13 @@ export function BatchUploader({
             const limited = combined.slice(0, MAX_FILES);
             const overflow = combined.length - MAX_FILES;
             if (overflow > 0) {
-                toast.warning(
-                    `${overflow} file diabaikan karena melebihi batas ${MAX_FILES} video.`,
-                );
+                toast.warning(`${overflow} file diabaikan karena melebihi batas ${MAX_FILES} video.`);
             }
             return limited;
         });
 
         if (skipped.length > 0) {
-            toast.error(
-                `${skipped.length} file dilewati: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "..." : ""}`,
-            );
+            toast.error(`${skipped.length} file dilewati: ${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "..." : ""}`);
         }
     }, []);
 
@@ -156,31 +161,21 @@ export function BatchUploader({
         // which makes the safety timer fire early, truncating the output.
         // We store the compressed File results in a Map keyed by item.id.
         const compressedFiles = new Map<string, File>();
+        const metadataMap = new Map<string, { duration_sec: number; width: number; height: number }>();
 
         for (let i = 0; i < localItems.length; i++) {
             const item = localItems[i];
 
-            setItems((prev) =>
-                prev.map((it) =>
-                    it.id === item.id ? { ...it, status: "compressing" } : it,
-                ),
-            );
+            setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "compressing" } : it)));
 
             try {
                 const compressed = await compressVideo(item.file);
+                const meta = await getVideoMetadata(compressed);
                 compressedFiles.set(item.id, compressed);
+                metadataMap.set(item.id, meta);
             } catch (compressErr) {
-                const msg =
-                    compressErr instanceof Error
-                        ? compressErr.message
-                        : "Gagal mengompresi video";
-                setItems((prev) =>
-                    prev.map((it) =>
-                        it.id === item.id
-                            ? { ...it, status: "error", errorMsg: `Kompresi: ${msg}` }
-                            : it,
-                    ),
-                );
+                const msg = compressErr instanceof Error ? compressErr.message : "Gagal mengompresi video";
+                setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "error", errorMsg: `Kompresi: ${msg}` } : it)));
                 // Continue to next video — do not abort the whole batch
             }
         }
@@ -207,18 +202,11 @@ export function BatchUploader({
         }
 
         // ── Phase B: Upload compressed files to R2 concurrently ──────────
-        const uploadFile = async (
-            item: BatchItem,
-            urlData: BatchUploadUrlItem,
-        ) => {
+        const uploadFile = async (item: BatchItem, urlData: BatchUploadUrlItem) => {
             const fileToUpload = compressedFiles.get(item.id);
             if (!fileToUpload) return; // was skipped due to compression error
 
-            setItems((prev) =>
-                prev.map((it) =>
-                    it.id === item.id ? { ...it, status: "uploading" } : it,
-                ),
-            );
+            setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "uploading" } : it)));
             try {
                 await uploadVideoToCloud(
                     urlData.upload_url,
@@ -227,26 +215,14 @@ export function BatchUploader({
                     fileToUpload.type && fileToUpload.type.trim() !== "" ? fileToUpload.type : "video/mp4",
                 );
                 successIds.add(item.id);
-                setItems((prev) =>
-                    prev.map((it) =>
-                        it.id === item.id ? { ...it, status: "success" } : it,
-                    ),
-                );
+                setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "success" } : it)));
             } catch (err) {
                 const msg = err instanceof Error ? err.message : "Gagal upload";
-                setItems((prev) =>
-                    prev.map((it) =>
-                        it.id === item.id
-                            ? { ...it, status: "error", errorMsg: msg }
-                            : it,
-                    ),
-                );
+                setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "error", errorMsg: msg } : it)));
             }
         };
 
-        const uploadQueue = compressedItemIds.map(
-            (item, i) => () => uploadFile(item, uploadUrls[i]),
-        );
+        const uploadQueue = compressedItemIds.map((item, i) => () => uploadFile(item, uploadUrls[i]));
 
         let nextIdx = 0;
         const worker = async (): Promise<void> => {
@@ -260,33 +236,32 @@ export function BatchUploader({
         await Promise.all(Array.from({ length: workerCount }, worker));
 
         // 3. Save metadata — use local successIds (NOT stale React state)
-        const successItems = compressedItemIds
-            .map((item, i) => ({ item, urlData: uploadUrls[i] }))
-            .filter(({ item }) => successIds.has(item.id));
+        const successItems = compressedItemIds.map((item, i) => ({ item, urlData: uploadUrls[i] })).filter(({ item }) => successIds.has(item.id));
 
         if (successItems.length > 0) {
             try {
                 await createBatchVideoMetadata(
-                    successItems.map(({ item, urlData }) => ({
-                        sample_id: urlData.sample_id,
-                        video_path: urlData.video_path,
-                        video_url: urlData.video_url,
-                        name,
-                        gender,
-                        gesture_type: backendType,
-                        gesture_name: label,
-                        is_correct: isCorrect,
-                        error_category:
-                            !isCorrect && errorCategory
-                                ? errorCategory
-                                : undefined,
-                        capture_location: captureLocation,
-                    })),
+                    successItems.map(({ item, urlData }) => {
+                        const meta = metadataMap.get(item.id)!;
+                        return {
+                            sample_id: urlData.sample_id,
+                            video_path: urlData.video_path,
+                            video_url: urlData.video_url,
+                            name,
+                            gender,
+                            gesture_type: backendType,
+                            gesture_name: label,
+                            is_correct: isCorrect,
+                            error_category: !isCorrect && errorCategory ? errorCategory : undefined,
+                            capture_location: captureLocation,
+                            duration_sec: meta.duration_sec,
+                            resolution_width: meta.width,
+                            resolution_height: meta.height,
+                        };
+                    }),
                 );
             } catch (err) {
-                toast.error(
-                    "Video berhasil diupload ke storage, namun gagal menyimpan metadata.",
-                );
+                toast.error("Video berhasil diupload ke storage, namun gagal menyimpan metadata.");
             }
         }
 
@@ -315,25 +290,12 @@ export function BatchUploader({
     if (phase === "done") {
         return (
             <div className="flex flex-col items-center gap-6 py-10">
-                <div
-                    className={cn(
-                        "flex size-20 items-center justify-center rounded-full",
-                        errorCount === 0 ? "bg-emerald-100" : "bg-amber-100",
-                    )}
-                >
-                    {errorCount === 0 ? (
-                        <CheckCircle2 className="size-10 text-emerald-600" />
-                    ) : (
-                        <AlertCircle className="size-10 text-amber-600" />
-                    )}
+                <div className={cn("flex size-20 items-center justify-center rounded-full", errorCount === 0 ? "bg-emerald-100" : "bg-amber-100")}>
+                    {errorCount === 0 ? <CheckCircle2 className="size-10 text-emerald-600" /> : <AlertCircle className="size-10 text-amber-600" />}
                 </div>
 
                 <div className="text-center">
-                    <h2 className="text-xl font-extrabold text-[#001D4A]">
-                        {errorCount === 0
-                            ? "Upload Selesai!"
-                            : "Upload Sebagian Berhasil"}
-                    </h2>
+                    <h2 className="text-xl font-extrabold text-[#001D4A]">{errorCount === 0 ? "Upload Selesai!" : "Upload Sebagian Berhasil"}</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         {successCount} berhasil
                         {errorCount > 0 ? `, ${errorCount} gagal` : ""}
@@ -347,10 +309,8 @@ export function BatchUploader({
                             key={item.id}
                             className={cn(
                                 "flex items-center gap-3 rounded-xl px-4 py-3 text-sm",
-                                item.status === "success" &&
-                                    "bg-emerald-50 text-emerald-800",
-                                item.status === "error" &&
-                                    "bg-red-50 text-red-800",
+                                item.status === "success" && "bg-emerald-50 text-emerald-800",
+                                item.status === "error" && "bg-red-50 text-red-800",
                             )}
                         >
                             {item.status === "success" ? (
@@ -358,14 +318,8 @@ export function BatchUploader({
                             ) : (
                                 <AlertCircle className="size-4 shrink-0 text-red-500" />
                             )}
-                            <span className="flex-1 truncate font-medium">
-                                {item.file.name}
-                            </span>
-                            {item.status === "error" && (
-                                <span className="text-xs text-red-600 shrink-0">
-                                    {item.errorMsg}
-                                </span>
-                            )}
+                            <span className="flex-1 truncate font-medium">{item.file.name}</span>
+                            {item.status === "error" && <span className="text-xs text-red-600 shrink-0">{item.errorMsg}</span>}
                         </div>
                     ))}
                 </div>
@@ -434,12 +388,9 @@ export function BatchUploader({
                         <Images className="size-8 text-emerald-600" />
                     </div>
                     <div className="text-center">
-                        <p className="font-bold text-[#001D4A]">
-                            Klik atau seret file video ke sini
-                        </p>
+                        <p className="font-bold text-[#001D4A]">Klik atau seret file video ke sini</p>
                         <p className="text-sm text-muted-foreground mt-1">
-                            Pilih hingga {MAX_FILES} video • Maks{" "}
-                            {MAX_FILE_SIZE_MB}MB per file
+                            Pilih hingga {MAX_FILES} video • Maks {MAX_FILE_SIZE_MB}MB per file
                         </p>
                     </div>
                 </div>
@@ -452,17 +403,10 @@ export function BatchUploader({
                     <div className="flex items-center justify-between px-1">
                         <span className="text-sm font-bold text-muted-foreground">
                             {items.length} video dipilih
-                            {items.length < MAX_FILES && (
-                                <span className="text-xs font-normal ml-1">
-                                    (maks {MAX_FILES})
-                                </span>
-                            )}
+                            {items.length < MAX_FILES && <span className="text-xs font-normal ml-1">(maks {MAX_FILES})</span>}
                         </span>
                         {!isUploading && items.length < MAX_FILES && (
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="text-xs font-semibold text-primary hover:underline"
-                            >
+                            <button onClick={() => fileInputRef.current?.click()} className="text-xs font-semibold text-primary hover:underline">
                                 + Tambah lagi
                             </button>
                         )}
@@ -475,63 +419,35 @@ export function BatchUploader({
                                 key={item.id}
                                 className={cn(
                                     "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-                                    item.status === "pending" &&
-                                        "bg-white border-border/50",
-                                    item.status === "compressing" &&
-                                        "bg-amber-50 border-amber-200",
-                                    item.status === "uploading" &&
-                                        "bg-blue-50 border-blue-200",
-                                    item.status === "success" &&
-                                        "bg-emerald-50 border-emerald-200",
-                                    item.status === "error" &&
-                                        "bg-red-50 border-red-200",
+                                    item.status === "pending" && "bg-white border-border/50",
+                                    item.status === "compressing" && "bg-amber-50 border-amber-200",
+                                    item.status === "uploading" && "bg-blue-50 border-blue-200",
+                                    item.status === "success" && "bg-emerald-50 border-emerald-200",
+                                    item.status === "error" && "bg-red-50 border-red-200",
                                 )}
                             >
                                 {/* Icon */}
                                 <div
                                     className={cn(
                                         "flex size-9 shrink-0 items-center justify-center rounded-lg",
-                                        item.status === "pending" &&
-                                            "bg-slate-100",
-                                        item.status === "compressing" &&
-                                            "bg-amber-100",
-                                        item.status === "uploading" &&
-                                            "bg-blue-100",
-                                        item.status === "success" &&
-                                            "bg-emerald-100",
+                                        item.status === "pending" && "bg-slate-100",
+                                        item.status === "compressing" && "bg-amber-100",
+                                        item.status === "uploading" && "bg-blue-100",
+                                        item.status === "success" && "bg-emerald-100",
                                         item.status === "error" && "bg-red-100",
                                     )}
                                 >
-                                    {item.status === "pending" && (
-                                        <FileVideo className="size-4 text-slate-500" />
-                                    )}
-                                    {item.status === "compressing" && (
-                                        <Loader2 className="size-4 text-amber-600 animate-spin" />
-                                    )}
-                                    {item.status === "uploading" && (
-                                        <Loader2 className="size-4 text-blue-600 animate-spin" />
-                                    )}
-                                    {item.status === "success" && (
-                                        <CheckCircle2 className="size-4 text-emerald-600" />
-                                    )}
-                                    {item.status === "error" && (
-                                        <AlertCircle className="size-4 text-red-500" />
-                                    )}
+                                    {item.status === "pending" && <FileVideo className="size-4 text-slate-500" />}
+                                    {item.status === "compressing" && <Loader2 className="size-4 text-amber-600 animate-spin" />}
+                                    {item.status === "uploading" && <Loader2 className="size-4 text-blue-600 animate-spin" />}
+                                    {item.status === "success" && <CheckCircle2 className="size-4 text-emerald-600" />}
+                                    {item.status === "error" && <AlertCircle className="size-4 text-red-500" />}
                                 </div>
 
                                 {/* File info */}
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold truncate text-[#001D4A]">
-                                        {item.file.name}
-                                    </p>
-                                    <p
-                                        className={cn(
-                                            "text-xs mt-0.5",
-                                            item.status === "error"
-                                                ? "text-red-600"
-                                                : "text-muted-foreground",
-                                        )}
-                                    >
+                                    <p className="text-sm font-semibold truncate text-[#001D4A]">{item.file.name}</p>
+                                    <p className={cn("text-xs mt-0.5", item.status === "error" ? "text-red-600" : "text-muted-foreground")}>
                                         {item.status === "error"
                                             ? item.errorMsg
                                             : item.status === "compressing"
@@ -568,38 +484,35 @@ export function BatchUploader({
                         <div className="text-sm">
                             <p className="font-bold">Mohon tetap di halaman ini!</p>
                             <p className="text-red-700 mt-0.5 text-xs leading-relaxed">
-                                Jangan pindah tab atau menutup aplikasi selama proses berlangsung. Jika Anda pindah tab, browser akan <strong>menjeda kompresi</strong> otomatis untuk menghemat baterai.
+                                Jangan pindah tab atau menutup aplikasi selama proses berlangsung. Jika Anda pindah tab, browser akan{" "}
+                                <strong>menjeda kompresi</strong> otomatis untuk menghemat baterai.
                             </p>
                         </div>
                     </div>
 
                     {/* Progress bar */}
                     <div className="rounded-xl bg-white border border-border/50 p-4 flex flex-col gap-2">
-                    <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                        <span>
-                            {compressingCount > 0
-                                ? `Mengompresi ${compressingCount} file...`
-                                : uploadingCount > 0
-                                  ? `Mengupload ${uploadingCount} file...`
-                                  : "Memproses..."}
-                        </span>
-                        <span>
-                            {successCount + errorCount} / {items.length}
-                        </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                            className="h-full rounded-full bg-[#0A56D9] transition-all duration-300"
-                            style={{
-                                width: `${((successCount + errorCount) / items.length) * 100}%`,
-                            }}
-                        />
-                    </div>
-                    {pendingCount > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                            {pendingCount} video menunggu...
-                        </p>
-                    )}
+                        <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                            <span>
+                                {compressingCount > 0
+                                    ? `Mengompresi ${compressingCount} file...`
+                                    : uploadingCount > 0
+                                      ? `Mengupload ${uploadingCount} file...`
+                                      : "Memproses..."}
+                            </span>
+                            <span>
+                                {successCount + errorCount} / {items.length}
+                            </span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                                className="h-full rounded-full bg-[#0A56D9] transition-all duration-300"
+                                style={{
+                                    width: `${((successCount + errorCount) / items.length) * 100}%`,
+                                }}
+                            />
+                        </div>
+                        {pendingCount > 0 && <p className="text-xs text-muted-foreground">{pendingCount} video menunggu...</p>}
                     </div>
                 </div>
             )}
@@ -617,10 +530,7 @@ export function BatchUploader({
 
             {/* Upload in progress — disable actions */}
             {isUploading && (
-                <Button
-                    disabled
-                    className="w-full rounded-xl h-12 font-bold text-base gap-2"
-                >
+                <Button disabled className="w-full rounded-xl h-12 font-bold text-base gap-2">
                     <Loader2 className="size-5 animate-spin" />
                     {compressingCount > 0
                         ? `Mengompresi & Upload ${successCount + errorCount} / ${items.length}...`
