@@ -156,7 +156,22 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
         // Track successful uploads via local Set (not React state which is stale in closure)
         const successIds = new Set<string>();
 
-        // ── Phase A: Compress ALL videos sequentially (1 at a time) ──────
+        // ── Phase A: Fetch presigned upload URLs UPFRONT ──────────────────
+        // Mengambil URL sebelum kompresi karena jika koneksi putus saat kompresi 20 video (bisa 10 menit),
+        // semua hasil kompresi sebelumnya tidak sia-sia. Expire URL di-set 60 menit dari backend.
+        let uploadUrls: BatchUploadUrlItem[];
+        try {
+            const payload = localItems.map(() => ({ type: backendType, label }));
+            const res = await getBatchUploadUrls(payload);
+            uploadUrls = res.data;
+        } catch (err) {
+            setItems((prev) => prev.map((it) => ({ ...it, status: "error", errorMsg: "Gagal memanggil API upload" })));
+            toast.error("Gagal mendapatkan URL upload. Periksa koneksi.");
+            setPhase("done");
+            return;
+        }
+
+        // ── Phase B: Compress ALL videos sequentially (1 at a time) ──────
         // Compressing multiple videos simultaneously causes CPU/GPU contention
         // which makes the safety timer fire early, truncating the output.
         // We store the compressed File results in a Map keyed by item.id.
@@ -183,28 +198,9 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
             }
         }
 
-        // ── Fetch presigned upload URLs AFTER compression ─────────────────
-        // URLs are fetched here (not upfront) so they are fresh and not expired.
-        // Compression of 20 videos can take several minutes.
         const compressedItemIds = localItems.filter((it) => compressedFiles.has(it.id));
         if (compressedItemIds.length === 0) {
             // All videos failed to compress
-            setPhase("done");
-            return;
-        }
-
-        let uploadUrls: BatchUploadUrlItem[];
-        try {
-            const payload = compressedItemIds.map(() => ({ type: backendType, label }));
-            const res = await getBatchUploadUrls(payload);
-            uploadUrls = res.data;
-        } catch (err) {
-            setItems((prev) =>
-                prev.map((it) =>
-                    it.status === "ready" || it.status === "compressing" ? { ...it, status: "error", errorMsg: "Gagal memanggil API upload" } : it,
-                ),
-            );
-            toast.error("Gagal mendapatkan URL upload. Periksa koneksi.");
             setPhase("done");
             return;
         }
@@ -230,7 +226,10 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
             }
         };
 
-        const uploadQueue = compressedItemIds.map((item, i) => () => uploadFile(item, uploadUrls[i]));
+        const uploadQueue = compressedItemIds.map((item) => {
+            const indexBeforeFilter = localItems.findIndex((orig) => orig.id === item.id);
+            return () => uploadFile(item, uploadUrls[indexBeforeFilter]);
+        });
 
         let nextIdx = 0;
         const worker = async (): Promise<void> => {
@@ -244,7 +243,12 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
         await Promise.all(Array.from({ length: workerCount }, worker));
 
         // 3. Save metadata — use local successIds (NOT stale React state)
-        const successItems = compressedItemIds.map((item, i) => ({ item, urlData: uploadUrls[i] })).filter(({ item }) => successIds.has(item.id));
+        const successItems = compressedItemIds
+            .map((item) => {
+                const indexBeforeFilter = localItems.findIndex((orig) => orig.id === item.id);
+                return { item, urlData: uploadUrls[indexBeforeFilter] };
+            })
+            .filter(({ item }) => successIds.has(item.id));
 
         if (successItems.length > 0) {
             try {
