@@ -188,8 +188,10 @@ export async function compressVideo(file: File): Promise<File> {
                     const fixedBlob = await FixWebmDuration(blob, durationMs);
 
                     const baseName = file.name.replace(/\.[^/.]+$/, "");
+                    // Always use plain "video/webm" (not "video/webm;codecs=vp8,opus") so it matches
+                    // the Content-Type that was used to sign the presigned URL in R2.
                     const compressedFile = new File([fixedBlob], `${baseName}.webm`, {
-                        type: mimeType,
+                        type: "video/webm",
                         lastModified: Date.now(),
                     });
 
@@ -198,7 +200,7 @@ export async function compressVideo(file: File): Promise<File> {
                     // Fallback to original blob if fix fails
                     const baseName = file.name.replace(/\.[^/.]+$/, "");
                     const compressedFile = new File([blob], `${baseName}.webm`, {
-                        type: mimeType,
+                        type: "video/webm",
                         lastModified: Date.now(),
                     });
                     resolve(compressedFile);

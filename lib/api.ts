@@ -148,10 +148,11 @@ export async function getUploadUrl(params: { type: string; label: string }): Pro
 }
 
 export async function uploadVideoToCloud(uploadUrl: string, file: File, mimeType: string): Promise<void> {
-    // Guard: if mimeType is empty (common when picking files from Android/Windows gallery),
-    // fall back to video/mp4 to prevent the browser from treating R2's response
-    // as a file download (which can open File Explorer on Windows).
-    const safeContentType = mimeType && mimeType.trim() !== "" ? mimeType : "video/mp4";
+    // IMPORTANT: The presigned URL is signed with Content-Type: "video/webm".
+    // The browser must send EXACTLY this value — any variation (e.g., "video/webm;codecs=vp8,opus")
+    // will cause S3/R2 to reject the PUT with a 403 SignatureDoesNotMatch error.
+    // Therefore we always force "video/webm" regardless of the file's actual MIME type.
+    const safeContentType = "video/webm";
 
     const res = await fetch(uploadUrl, {
         method: "PUT",

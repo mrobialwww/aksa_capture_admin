@@ -47,7 +47,7 @@ const MAX_CONCURRENT_UPLOADS = 3;
 interface BatchItem {
     id: string;
     file: File;
-    status: "pending" | "compressing" | "uploading" | "success" | "error";
+    status: "pending" | "compressing" | "ready" | "uploading" | "success" | "error";
     errorMsg?: string;
     uploadData?: BatchUploadUrlItem;
 }
@@ -173,6 +173,9 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
                 const meta = await getVideoMetadata(compressed);
                 compressedFiles.set(item.id, compressed);
                 metadataMap.set(item.id, meta);
+
+                // Tandai sudah selesai kompresi (menunggu antrean yang lain)
+                setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "ready" } : it)));
             } catch (compressErr) {
                 const msg = compressErr instanceof Error ? compressErr.message : "Gagal mengompresi video";
                 setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "error", errorMsg: `Kompresi: ${msg}` } : it)));
@@ -196,8 +199,13 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
             const res = await getBatchUploadUrls(payload);
             uploadUrls = res.data;
         } catch (err) {
+            setItems((prev) =>
+                prev.map((it) =>
+                    it.status === "ready" || it.status === "compressing" ? { ...it, status: "error", errorMsg: "Gagal memanggil API upload" } : it,
+                ),
+            );
             toast.error("Gagal mendapatkan URL upload. Periksa koneksi.");
-            setPhase("select");
+            setPhase("done");
             return;
         }
 
@@ -275,6 +283,7 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
     const successCount = items.filter((i) => i.status === "success").length;
     const errorCount = items.filter((i) => i.status === "error").length;
     const compressingCount = items.filter((i) => i.status === "compressing").length;
+    const readyCount = items.filter((i) => i.status === "ready").length;
     const uploadingCount = items.filter((i) => i.status === "uploading").length;
     const pendingCount = items.filter((i) => i.status === "pending").length;
 
@@ -439,6 +448,7 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
                                 >
                                     {item.status === "pending" && <FileVideo className="size-4 text-slate-500" />}
                                     {item.status === "compressing" && <Loader2 className="size-4 text-amber-600 animate-spin" />}
+                                    {item.status === "ready" && <Loader2 className="size-4 text-blue-400 animate-pulse" />}
                                     {item.status === "uploading" && <Loader2 className="size-4 text-blue-600 animate-spin" />}
                                     {item.status === "success" && <CheckCircle2 className="size-4 text-emerald-600" />}
                                     {item.status === "error" && <AlertCircle className="size-4 text-red-500" />}
@@ -452,11 +462,13 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
                                             ? item.errorMsg
                                             : item.status === "compressing"
                                               ? "Mengompresi..."
-                                              : item.status === "uploading"
-                                                ? "Mengupload..."
-                                                : item.status === "success"
-                                                  ? "Berhasil"
-                                                  : formatSize(item.file.size)}
+                                              : item.status === "ready"
+                                                ? "Selesai kompresi, menunggu antrean upload..."
+                                                : item.status === "uploading"
+                                                  ? "Mengupload..."
+                                                  : item.status === "success"
+                                                    ? "Berhasil"
+                                                    : formatSize(item.file.size)}
                                     </p>
                                 </div>
 
@@ -496,9 +508,11 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
                             <span>
                                 {compressingCount > 0
                                     ? `Mengompresi ${compressingCount} file...`
-                                    : uploadingCount > 0
-                                      ? `Mengupload ${uploadingCount} file...`
-                                      : "Memproses..."}
+                                    : readyCount > 0
+                                      ? `Menyiapkan ${readyCount} url upload...`
+                                      : uploadingCount > 0
+                                        ? `Mengupload ${uploadingCount} file...`
+                                        : "Memproses..."}
                             </span>
                             <span>
                                 {successCount + errorCount} / {items.length}
