@@ -1,33 +1,12 @@
 export const HURUF_LIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
-export const KATA_LIST = [
-    "selamat pagi",
-    "selamat siang",
-    "selamat sore",
-    "selamat malam",
-    "aku",
-    "saya",
-    "kamu",
-    "dari",
-    "mana",
-    "berasal",
-    "halo",
-    "kabar",
-    "apa",
-    "siapa",
-    "perkenalkan",
-    "nama",
-    "sayang",
-    "marah",
-];
+export const KATA_LIST = ["aku", "saya", "kamu", "perkenalkan", "nama", "apa", "selamat pagi", "siapa", "dari", "mana"];
 
 const _groupedKata = [
-    ["selamat pagi", "selamat siang", "selamat sore", "selamat malam"],
     ["aku", "saya", "kamu"],
-    ["dari", "mana", "berasal"],
-    ["halo", "kabar"],
-    ["apa", "siapa"],
     ["perkenalkan", "nama"],
+    ["apa", "selamat pagi", "siapa"],
+    ["dari", "mana"],
 ]
     .map((group) => group.filter((w) => KATA_LIST.includes(w)))
     .filter((g) => g.length > 0);
