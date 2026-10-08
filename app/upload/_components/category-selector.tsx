@@ -6,12 +6,7 @@ import { CheckCircle, XCircle, ArrowRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { HURUF_LIST, KATA_LIST, GROUPED_KATA_LIST, DESKTOP_KATA_ROWS } from "@/lib/constants";
 
@@ -21,17 +16,10 @@ export function CategorySelector() {
     const [label, setLabel] = useState<string>("");
     const [isCorrect, setIsCorrect] = useState<boolean>(true);
     const [errorCategory, setErrorCategory] = useState<string>("");
-    const [captureLocation, setCaptureLocation] = useState<
-        "indoor" | "outdoor"
-    >("indoor");
+    const [captureLocation, setCaptureLocation] = useState<"indoor" | "outdoor">("indoor");
 
     const handleNext = () => {
         if (!label) return;
-
-        if (!isCorrect && !errorCategory) {
-            toast.error("Pilih kategori kesalahan terlebih dahulu");
-            return;
-        }
 
         // Save to url params and navigate
         const params = new URLSearchParams();
@@ -39,8 +27,8 @@ export function CategorySelector() {
         params.set("label", label);
         params.set("is_correct", String(isCorrect));
         params.set("capture_location", captureLocation);
-        if (!isCorrect && errorCategory) {
-            params.set("error_category", errorCategory);
+        if (!isCorrect) {
+            params.set("error_category", "none");
         }
 
         router.push(`/upload/source?${params.toString()}`);
@@ -51,12 +39,8 @@ export function CategorySelector() {
             {/* Header & Button */}
             <div className="mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-extrabold tracking-tight text-[#001D4A]">
-                        Pilih Kategori
-                    </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Tentukan jenis dan status gerakan yang akan Anda rekam.
-                    </p>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-[#001D4A]">Pilih Kategori</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Tentukan jenis dan status gerakan yang akan Anda rekam.</p>
                 </div>
 
                 {label && (
@@ -75,9 +59,7 @@ export function CategorySelector() {
             <div className="flex flex-col gap-8">
                 {/* 1. Pilih Jenis Gerakan */}
                 <div className="flex flex-col gap-4">
-                    <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                        1. Pilih Jenis Gerakan
-                    </span>
+                    <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">1. Pilih Jenis Gerakan</span>
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={() => {
@@ -107,113 +89,11 @@ export function CategorySelector() {
                             Gerakan Salah
                         </button>
                     </div>
-
-                    {!isCorrect && (
-                        <div className="m-2  animate-in fade-in slide-in-from-top-2">
-                            <label className="text-sm font-bold text-[#001D4A] block mb-2">
-                                Kategori Kesalahan
-                            </label>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-full sm:w-1/2 justify-between h-12 rounded-xl border-border/80 bg-white px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20",
-                                            !errorCategory &&
-                                                "text-muted-foreground",
-                                        )}
-                                    >
-                                        {errorCategory
-                                            ? errorCategory
-                                                  .split("_")
-                                                  .map(
-                                                      (w) =>
-                                                          w
-                                                              .charAt(0)
-                                                              .toUpperCase() +
-                                                          w.slice(1),
-                                                  )
-                                                  .join(" ")
-                                            : "Pilih Kategori Kesalahan"}
-                                        <ChevronDown className="h-4 w-4 opacity-50" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-[200px] rounded-xl">
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory("handshape_wrong")
-                                        }
-                                    >
-                                        Handshape Wrong
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory(
-                                                "orientation_wrong",
-                                            )
-                                        }
-                                    >
-                                        Orientation Wrong
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory("location_wrong")
-                                        }
-                                    >
-                                        Location Wrong
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory("movement_wrong")
-                                        }
-                                    >
-                                        Movement Wrong
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory(
-                                                "non_manual_marker_missing",
-                                            )
-                                        }
-                                    >
-                                        Non-Manual Marker Missing
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory(
-                                                "finger_spelling_incomplete",
-                                            )
-                                        }
-                                    >
-                                        Finger Spelling Incomplete
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory(
-                                                "mixed_with_other_sign",
-                                            )
-                                        }
-                                    >
-                                        Mixed with Other Sign
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() =>
-                                            setErrorCategory("unclear")
-                                        }
-                                    >
-                                        Unclear
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    )}
                 </div>
 
                 {/* 2. Pilih Lokasi Pengambilan */}
                 <div className="flex flex-col gap-4">
-                    <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                        2. Pilih Lokasi Pengambilan
-                    </span>
+                    <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">2. Pilih Lokasi Pengambilan</span>
                     <div className="flex flex-wrap items-center gap-3">
                         <button
                             onClick={() => setCaptureLocation("indoor")}
@@ -270,10 +150,7 @@ export function CategorySelector() {
                             </TabsTrigger>
                         </TabsList>
 
-                        <TabsContent
-                            value="huruf"
-                            className="mt-0 outline-none"
-                        >
+                        <TabsContent value="huruf" className="mt-0 outline-none">
                             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
                                 {HURUF_LIST.map((h) => (
                                     <button
@@ -313,9 +190,7 @@ export function CategorySelector() {
                                                 </button>
                                             ))}
                                         </div>
-                                        {groupIdx < GROUPED_KATA_LIST.length - 1 && (
-                                            <hr className="border-t-2 border-emerald-500/60" />
-                                        )}
+                                        {groupIdx < GROUPED_KATA_LIST.length - 1 && <hr className="border-t-2 border-emerald-500/60" />}
                                     </div>
                                 ))}
                             </div>
@@ -325,13 +200,13 @@ export function CategorySelector() {
                                 {DESKTOP_KATA_ROWS.map((row, rowIdx) => {
                                     const totalItemsInRow = row.reduce((sum, g) => sum + g.length, 0);
                                     const remainingCols = 6 - totalItemsInRow;
-                                    
+
                                     return (
                                         <div key={rowIdx} className="flex flex-col gap-6">
                                             <div className="flex flex-row gap-3 w-full">
                                                 {row.map((group, groupIdx) => (
                                                     <div key={groupIdx} className="flex flex-row gap-3" style={{ flex: group.length }}>
-                                                        <div 
+                                                        <div
                                                             className="grid gap-3 w-full"
                                                             style={{ gridTemplateColumns: `repeat(${group.length}, minmax(0, 1fr))` }}
                                                         >
@@ -351,17 +226,13 @@ export function CategorySelector() {
                                                             ))}
                                                         </div>
                                                         {groupIdx < row.length - 1 && (
-                                                            <div className="w-[3px] bg-emerald-500/60 rounded-full shrink-0" />
+                                                            <div className="w-0.75 bg-emerald-500/60 rounded-full shrink-0" />
                                                         )}
                                                     </div>
                                                 ))}
-                                                {remainingCols > 0 && (
-                                                    <div style={{ flex: remainingCols }} />
-                                                )}
+                                                {remainingCols > 0 && <div style={{ flex: remainingCols }} />}
                                             </div>
-                                            {rowIdx < DESKTOP_KATA_ROWS.length - 1 && (
-                                                <hr className="border-t-2 border-emerald-500/60" />
-                                            )}
+                                            {rowIdx < DESKTOP_KATA_ROWS.length - 1 && <hr className="border-t-2 border-emerald-500/60" />}
                                         </div>
                                     );
                                 })}

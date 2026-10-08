@@ -165,8 +165,9 @@ export function BatchUploader({ type, label, isCorrect, errorCategory, captureLo
             const res = await getBatchUploadUrls(payload);
             uploadUrls = res.data;
         } catch (err) {
-            setItems((prev) => prev.map((it) => ({ ...it, status: "error", errorMsg: "Gagal memanggil API upload" })));
-            toast.error("Gagal mendapatkan URL upload. Periksa koneksi.");
+            const errMsg = err instanceof Error ? err.message : "Error unknown";
+            setItems((prev) => prev.map((it) => ({ ...it, status: "error", errorMsg: errMsg })));
+            toast.error(`Gagal Fetch API Upload: ${errMsg}`);
             setPhase("done");
             return;
         }
