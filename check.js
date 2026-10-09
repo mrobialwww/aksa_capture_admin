@@ -1,0 +1,1 @@
+fetch('https://aksacapturebe-production.up.railway.app/api/v1/upload-url/batch', { method: 'OPTIONS' }).then(res => console.log('STATUS:', res.status, res.statusText)).catch(err => console.error(err))

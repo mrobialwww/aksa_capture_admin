@@ -40,7 +40,7 @@ const getVideoMetadata = (file: File): Promise<{ duration_sec: number; width: nu
     });
 };
 
-const MAX_FILES = 20;
+const MAX_FILES = 100;
 const MAX_FILE_SIZE_MB = 10;
 const MAX_CONCURRENT_UPLOADS = 3;
 

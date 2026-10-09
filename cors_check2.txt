@@ -1,0 +1,11 @@
+ST: 204
+access-control-allow-headers Origin,Content-Type,Authorization,Ngrok-Skip-Browser-Warning
+access-control-allow-methods GET,POST,PATCH,PUT,DELETE,OPTIONS
+access-control-allow-origin *
+access-control-max-age 43200
+connection keep-alive
+date Thu, 08 Oct 2026 11:46:41 GMT
+server railway-hikari
+x-hikari-trace sin1.d1nj
+x-railway-edge sin1
+x-railway-request-id M6OBxSscQS24DYaSlt7tkg

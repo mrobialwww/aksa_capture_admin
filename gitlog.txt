@@ -1,0 +1,3 @@
+ced3d4a fix: fixing cant upload 20 item at the same time
+89ed856 Merge branch 'main' of https://github.com/mrobialwww/aksa_capture_be
+b87838a fix: fixing stuck on 'mengompresi' when upload 20 item at the same time

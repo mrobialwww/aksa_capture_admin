@@ -1,0 +1,10 @@
+ced3d4a fix: fixing cant upload 20 item at the same time
+89ed856 Merge branch 'main' of https://github.com/mrobialwww/aksa_capture_be
+b87838a fix: fixing stuck on 'mengompresi' when upload 20 item at the same time
+6badf2a fix: treat Label.IsCorrect as bool in handler.go (#1)
+88676d9 fix: fixing 0:00/0:00 duration
+4dd0d50 refactor: back with no abema mechahism
+a73754e fix: fixing batch upload mechanism with installing abema package
+1444023 fix: fixing bug batch videos upload
+f19456e feat: create /sampe endpoint for get 5 item for each gesture_name and implement /batch video upload for upload 20 videos at the same time
+1874678 chore: force github linguist to update stats with strict js exclusion

@@ -1,0 +1,58 @@
+commit ced3d4aa29a15b7ca8baefdb10e10fe8cbbb0037
+Author: BoRrrr <robialwan8@gmail.com>
+Date:   Thu Oct 8 18:27:22 2026 +0700
+
+    fix: fixing cant upload 20 item at the same time
+
+diff --git a/internal/handlers/handler.go b/internal/handlers/handler.go
+index fcb7857..d9cd425 100644
+--- a/internal/handlers/handler.go
++++ b/internal/handlers/handler.go
+@@ -61,3 +61,3 @@ func (h *VideoHandler) GenerateUploadURL(
+ 
+-	uploadURL, err := h.r2Service.GenerateUploadURL(videoPath, "video/webm")
++	uploadURL, err := h.r2Service.GenerateUploadURL(videoPath)
+ 	if err != nil {
+@@ -471,3 +471,3 @@ func (h *VideoHandler) BatchGenerateUploadURL(c *gin.Context) {
+ 
+-		uploadURL, err := h.r2Service.GenerateUploadURL(videoPath, "video/webm")
++		uploadURL, err := h.r2Service.GenerateUploadURL(videoPath)
+ 		if err != nil {
+diff --git a/internal/middleware/cors.go b/internal/middleware/cors.go
+index 96938d8..0dba426 100644
+--- a/internal/middleware/cors.go
++++ b/internal/middleware/cors.go
+@@ -38,3 +38,3 @@ func CORSMiddleware() gin.HandlerFunc {
+ 	return cors.New(cors.Config{
+-		AllowOrigins:     defaultOrigins,
++		AllowAllOrigins:  true,
+ 		AllowMethods:     []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
+@@ -42,3 +42,2 @@ func CORSMiddleware() gin.HandlerFunc {
+ 		ExposeHeaders:    []string{"Content-Length"},
+-		AllowCredentials: true,
+ 		MaxAge:           12 * time.Hour,
+diff --git a/internal/routes/routes.go b/internal/routes/routes.go
+index 0d5bc76..9ed03ed 100644
+--- a/internal/routes/routes.go
++++ b/internal/routes/routes.go
+@@ -16,2 +16,8 @@ func RegisterRoutes(
+ 	{
++		// Handle CORS preflight (OPTIONS) for ALL routes under /api/v1
++		// Without this, browsers get 404 on OPTIONS and block all POST/PATCH requests.
++		api.OPTIONS("/*path", func(c *gin.Context) {
++			c.Status(204)
++		})
++
+ 		// Upload Video to Cloudflare to generated URL
+diff --git a/internal/services/r2_service.go b/internal/services/r2_service.go
+index b4d3b33..843fe51 100644
+--- a/internal/services/r2_service.go
++++ b/internal/services/r2_service.go
+@@ -27,4 +27,6 @@ func (s *R2Service) GenerateUploadURL(
+ 	key string,
+-	contentType string,
+ ) (string, error) {
++	// ContentType dikunci ke video/webm agar R2 menyimpan file dengan tipe media yang benar.
++	// Browser WAJIB mengirim header Content-Type: video/webm saat melakukan PUT ke presigned URL ini.
++	contentType := "video/webm"
+ 

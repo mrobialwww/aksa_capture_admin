@@ -1,0 +1,4 @@
+* URL rejected: Bad hostname
+curl: (3) URL rejected: Bad hostname
+* URL rejected: Malformed input to a URL function
+curl: (3) URL rejected: Malformed input to a URL function

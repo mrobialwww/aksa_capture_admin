@@ -1,0 +1,1 @@
+fetch('https://aksacapturebe-production.up.railway.app/api/v1/upload-url/batch', {method: 'OPTIONS', headers: {Origin: 'http://localhost:3000', 'Access-Control-Request-Method': 'POST'}}).then(r => console.log('STATUS:', r.status)).catch(console.error)
